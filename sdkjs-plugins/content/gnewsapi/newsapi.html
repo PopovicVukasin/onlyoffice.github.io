@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>GNews</title>
+    <script type="text/javascript" src="../v1/plugins.js"></script>
+    <script type="text/javascript" src="../v1/plugins-ui.js"></script>
+    <link rel="stylesheet" href="../v1/plugins.css" />
+    <script type="text/javascript" src="scripts/newsapi.js"></script>
+    <link rel="stylesheet" href="style/black-theme.css" />
+  </head>
+  <body>
+    <!-- Step 1: API Key Setup -->
+    <div id="api-setup" class="setup-screen">
+      <div class="setup-header">
+        <p>
+          Search through millions of articles from over 80,000 large and small
+          news sources and blogs.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="api-key-setup">API key:</label>
+        <input
+          type="password"
+          id="api-key-setup"
+          placeholder="Enter your GNews API key"
+        />
+        <div class="help-text">
+          Get your free API key from
+          <a href="https://gnews.io" target="_blank">gnews.io</a>
+        </div>
+      </div>
+
+      <div class="button-group">
+        <button class="btn" id="save-api-btn" onclick="saveApiKey()">
+          Login
+        </button>
+      </div>
+      <div id="status"></div>
+    </div>
+
+    <!-- Step 2: Search Interface -->
+    <div id="search-interface" class="search-screen" style="display: none">
+      <!-- Tab Navigation -->
+      <div class="tab-navigation">
+        <button
+          class="tab-btn active"
+          onclick="switchTab('search')"
+          id="search-tab"
+        >
+          Search Endpoint
+        </button>
+        <button
+          class="tab-btn"
+          onclick="switchTab('headlines')"
+          id="headlines-tab"
+        >
+          Top Headlines
+        </button>
+      </div>
+
+      <!-- Search Form Container -->
+      <div class="search-form-container">
+        <div class="setup-header">
+          <p>
+            Search through millions of articles from over 80,000 large and small
+            news sources and blogs.
+          </p>
+        </div>
+
+        <!-- Search Endpoint Tab Content -->
+        <div id="search-content" class="tab-content active">
+          <div class="form-group">
+            <label for="search-query">Prompt:</label>
+            <input
+              type="text"
+              id="search-query"
+              placeholder="Search with singular keywords, or surround complete phrases with quotation marks "
+            />
+          </div>
+
+          <div class="filter-section">
+            <div class="filter-header">Search in</div>
+            <div class="checkbox-group">
+              <label class="checkbox-item">
+                <input
+                  type="checkbox"
+                  id="show-title"
+                  onchange="updateArticleDisplay()"
+                />
+                Title
+              </label>
+              <label class="checkbox-item">
+                <input
+                  type="checkbox"
+                  id="show-description"
+                  onchange="updateArticleDisplay()"
+                />
+                Description
+              </label>
+              <label class="checkbox-item">
+                <input
+                  type="checkbox"
+                  id="show-content"
+                  onchange="updateArticleDisplay()"
+                />
+                Content
+              </label>
+            </div>
+          </div>
+
+          <!-- Advanced Settings Section -->
+          <div
+            id="search-advanced-settings"
+            class="filter-section"
+            style="display: none"
+          >
+            <div class="filter-header">Advanced Settings</div>
+            <div id="search-advanced-options"></div>
+          </div>
+
+          <div class="button-group">
+            <button class="btn" id="search-btn" onclick="searchNews()">
+              Find
+            </button>
+          </div>
+        </div>
+
+        <!-- Top Headlines Tab Content -->
+        <div id="headlines-content" class="tab-content" style="display: none">
+          <div class="form-group">
+            <label for="headlines-query">Prompt</label>
+            <input
+              type="text"
+              id="headlines-query"
+              placeholder="Search with singular keywords, or surround complete phrases with quotation marks"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="headlines-category">Category:</label>
+            <select id="headlines-category">
+              <option value="">All Categories</option>
+              <option value="general">General</option>
+              <option value="business">Business</option>
+              <option value="entertainment">Entertainment</option>
+              <option value="health">Health</option>
+              <option value="science">Science</option>
+              <option value="sports">Sports</option>
+              <option value="technology">Technology</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="headlines-country">Country:</label>
+            <select id="headlines-country">
+              <option value="us">United States</option>
+              <option value="gb">United Kingdom</option>
+              <option value="ca">Canada</option>
+              <option value="au">Australia</option>
+              <option value="de">Germany</option>
+              <option value="fr">France</option>
+              <option value="jp">Japan</option>
+              <option value="in">India</option>
+            </select>
+          </div>
+
+          <!-- Advanced Settings Section for Headlines -->
+          <div
+            id="headlines-advanced-settings"
+            class="filter-section"
+            style="display: none"
+          >
+            <div class="filter-header">Advanced Settings</div>
+            <div id="headlines-advanced-options"></div>
+          </div>
+
+          <div class="button-group">
+            <button class="btn" id="headlines-btn" onclick="getTopHeadlines()">
+              Find
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button
+            class="btn-link"
+            onclick="toggleAdvancedSettings()"
+            id="advanced-settings-btn"
+          >
+            Show advanced settings
+          </button>
+        </div>
+        <div class="settings-actions">
+          <button class="btn-link" onclick="changeApiKey()">Reconfigure</button>
+        </div>
+      </div>
+
+      <div id="status"></div>
+
+      <!-- Results Section - Hidden by default -->
+      <div id="results-section" class="results-section" style="display: none">
+        <div class="results-header-container">
+          <button class="btn-back" onclick="goBackToSearch()">← Back</button>
+          <div class="results-header">Search Results</div>
+        </div>
+
+        <div class="articles-container">
+          <div id="articles-list"></div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
