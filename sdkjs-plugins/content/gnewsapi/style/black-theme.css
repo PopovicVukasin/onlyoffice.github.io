@@ -1,9 +1,9 @@
 :root {
-  --color-primary: #333;
-  --color-text: #333;
-  --color-text-muted: #666;
-  --color-border: #ddd;
-  --color-bg-hover: #f5f5f5;
+  --color-primary: #ccc;
+  --color-text: #e0e0e0;
+  --color-text-muted: #999;
+  --color-border: #444;
+  --color-bg-hover: #2a2a2a;
 
   --space: 8px;
   --space-lg: 16px;
@@ -22,6 +22,7 @@ body {
   padding: var(--space-lg);
   margin: 0;
   color: var(--color-text);
+  background-color: #1a1a1a;
 }
 
 input,
@@ -33,12 +34,26 @@ textarea {
   border-radius: 4px;
   font-size: var(--font-size);
   font-family: var(--font-family);
+  background-color: #2d2d2d;
+  color: var(--color-text);
+}
+
+select {
+  background-color: #2d2d2d;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+select option {
+  background-color: #2d2d2d;
+  color: var(--color-text);
 }
 
 label {
   display: block;
   margin-bottom: var(--space);
   font-weight: bold;
+  color: var(--color-text);
 }
 
 .btn,
@@ -48,7 +63,7 @@ button,
   padding: var(--space) var(--space-lg);
   border: 1px solid var(--color-border);
   border-radius: 1px;
-  background: white;
+  background: #2d2d2d;
   color: var(--color-text);
   cursor: pointer;
   font-size: var(--font-size);
@@ -64,13 +79,15 @@ button,
   border: none;
   text-decoration: underline;
   text-align: left;
+  color: var(--color-primary);
 }
 
 .btn-back {
-  background: white;
+  background: #2d2d2d;
   border: none;
   padding: var(--space) var(--space-lg);
   font-size: var(--font-size);
+  color: var(--color-text);
 }
 
 .btn:hover,
@@ -80,14 +97,6 @@ button:hover,
 .btn-link:hover,
 .tab-btn:hover {
   background: var(--color-bg-hover);
-}
-
-.btn-link {
-  background: none;
-  border: none;
-  color: var(--color-primary);
-  text-decoration: underline;
-  padding: 0;
 }
 
 .btn-small {
@@ -104,6 +113,7 @@ button:hover,
 .filter-header {
   font-weight: bold;
   margin-bottom: var(--space);
+  color: var(--color-text);
 }
 
 .results-section {
@@ -133,6 +143,7 @@ button:hover,
 .article-title {
   font-weight: bold;
   margin-bottom: var(--space);
+  color: var(--color-text);
 }
 
 .article-description {
@@ -142,6 +153,7 @@ button:hover,
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  color: var(--color-text-muted);
 }
 
 .article-meta {
@@ -159,6 +171,7 @@ button:hover,
   height: 16px;
   opacity: 0.7;
   transition: opacity 0.2s;
+  color: var(--color-text-muted);
 }
 
 .article-meta .open-icon:hover {
@@ -172,15 +185,15 @@ button:hover,
 }
 
 .success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
+  background: #1e4d2b;
+  color: #90ee90;
+  border: 1px solid #2d5a34;
 }
 
 .error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
+  background: #4d1e1e;
+  color: #ff9999;
+  border: 1px solid #5a2d2d;
 }
 
 .tab-navigation {
@@ -211,7 +224,7 @@ button:hover,
   color: var(--color-primary);
   border-bottom: none;
   font-weight: bold;
-  background: white;
+  background: #1a1a1a;
   margin-bottom: -1px;
 }
 
@@ -228,6 +241,7 @@ button:hover,
   text-align: center;
   font-style: italic;
   padding: var(--space-lg);
+  color: var(--color-text-muted);
 }
 
 .settings-actions .btn-link {
@@ -249,6 +263,7 @@ button:hover,
   display: flex;
   align-items: center;
   margin-bottom: var(--space);
+  color: var(--color-text);
 }
 
 .checkbox-item input {
@@ -259,6 +274,11 @@ button:hover,
 .help-text {
   font-size: var(--font-size-sm);
   margin-top: var(--space);
+  color: var(--color-text-muted);
+}
+
+.help-text a {
+  color: var(--color-primary);
 }
 
 .api-info {
@@ -266,9 +286,10 @@ button:hover,
   justify-content: space-between;
   align-items: center;
   padding: var(--space);
-  background: #f8f9fa;
+  background: #2d2d2d;
   border-radius: 4px;
   margin-bottom: var(--space-lg);
+  color: var(--color-text);
 }
 
 .results-header-container {
@@ -276,4 +297,12 @@ button:hover,
   align-items: center;
   gap: var(--space);
   margin-bottom: var(--space-lg);
+}
+
+.results-header {
+  color: var(--color-text);
+}
+
+.setup-header p {
+  color: var(--color-text-muted);
 }
