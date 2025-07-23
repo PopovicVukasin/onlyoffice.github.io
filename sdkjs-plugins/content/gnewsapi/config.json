@@ -1,6 +1,7 @@
 {
   "name": "GNews API",
   "guid": "asc.{0616AE85-5DBE-4B6B-A0A9-455C4F1503AD}",
+  "version": "0.1.2",
   "baseUrl": "",
   "variations": [
     {
@@ -16,7 +17,23 @@
       "initData": "",
       "isUpdateOleOnResize": true,
       "buttons": [],
-      "size": [300, 0]
+      "size": [300, 0],
+      "store": {
+        "background": {
+          "light": "#F5F5F5",
+          "dark": "#444444"
+        },
+        "screenshots": [
+          "resources/store/screenshots/screenshot1.png",
+          "resources/store/screenshots/screenshot2.png",
+          "resources/store/screenshots/screenshot3.png"
+        ],
+        "icons": {
+          "light": "resources/store/icons",
+          "dark": "resources/store/icons"
+        },
+        "categories": ["specAbilities", "work"]
+      }
     },
     {
       "description": "About",
