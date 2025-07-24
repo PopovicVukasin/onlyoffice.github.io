@@ -52,5 +52,8 @@
   "Arabic": "Arabic",
   "Russian": "Russian",
   "Hindi": "Hindi",
-  "Korean": "Korean"
+  "Korean": "Korean",
+  "No articles found for your search": "No articles found for your search",
+  "Success! {0} results were found by {1}": "Success! {0} results were found by {1}",
+  "all fields": "all fields"
 }

@@ -52,5 +52,8 @@
   "Arabic": "Arabština",
   "Russian": "Ruština",
   "Hindi": "Hindština",
-  "Korean": "Korejština"
+  "Korean": "Korejština",
+  "No articles found for your search": "Pro vaše vyhledávání nebyly nalezeny žádné články",
+  "Success! {0} results were found by {1}": "Úspěch! Nalezeno {0} výsledků pomocí {1}",
+  "all fields": "všechna pole"
 }

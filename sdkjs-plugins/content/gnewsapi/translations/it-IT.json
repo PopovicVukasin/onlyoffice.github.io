@@ -1,13 +1,13 @@
 {
-  "Search through millions of articles": "Cerca tra milioni di articoli di oltre 80.000 fonti di notizie e blog grandi e piccoli.",
+  "Search through millions of articles": "Cerca tra milioni di articoli di oltre 80.000 fonti, tra notizie e blog grandi e piccoli.",
   "API key": "Chiave API:",
   "Enter your GNews API key": "Inserisci la tua chiave API GNews",
-  "Get your free API key": "Ottieni la tua chiave API gratuita da",
+  "Get your free API key": "Ottieni la tua chiave API gratuita",
   "Login": "Accedi",
   "Search": "Cerca",
   "Top Headlines": "Titoli principali",
   "Prompt": "Richiesta",
-  "Search with keywords": "Cerca con parole chiave singolari o circonda frasi complete con virgolette",
+  "Search with keywords": "Cerca con parole chiave singole o con frasi complete con virgolette",
   "Search in": "Cerca in",
   "Title": "Titolo",
   "Description": "Descrizione",
@@ -52,5 +52,8 @@
   "Arabic": "Arabo",
   "Russian": "Russo",
   "Hindi": "Hindi",
-  "Korean": "Coreano"
+  "Korean": "Coreano",
+  "No articles found for your search": "Nessun articolo trovato per la tua ricerca",
+  "Success! {0} results were found by {1}": "Successo! {0} risultati sono stati trovati da {1}",
+  "all fields": "tutti i campi"
 }

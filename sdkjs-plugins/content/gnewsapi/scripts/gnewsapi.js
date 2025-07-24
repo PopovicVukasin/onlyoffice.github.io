@@ -705,12 +705,16 @@
   function displaySearchResults(articles, showStatusMessage = true) {
     currentArticles = articles;
     const resultsList = $("articles-list");
-
+    const resultsHeader = document.querySelector(".results-header");
     if (!resultsList) return;
 
     if (articles.length === 0) {
+      resultsHeader.textContent = "";
+      const noResultsText = window.Asc.plugin.tr
+        ? window.Asc.plugin.tr("No articles found for your search")
+        : "No articles found for your search";
       resultsList.innerHTML =
-        '<div class="no-results">No articles found for your search</div>';
+        '<div class="no-results">' + noResultsText + "</div>";
       showSearchResults();
       return;
     }
@@ -797,14 +801,39 @@
     const resultsHeader = document.querySelector(".results-header");
     if (!resultsHeader) return;
 
-    const searchFields = [];
-    if (displayOptions.title) searchFields.push("title");
-    if (displayOptions.description) searchFields.push("description");
-    if (displayOptions.content) searchFields.push("content");
+    // Only show success message if there are actually results
+    if (count === 0) {
+      resultsHeader.textContent = "";
+      return;
+    }
 
+    const searchFields = [];
+    if (displayOptions.title)
+      searchFields.push(
+        window.Asc.plugin.tr ? window.Asc.plugin.tr("title") : "title"
+      );
+    if (displayOptions.description)
+      searchFields.push(
+        window.Asc.plugin.tr
+          ? window.Asc.plugin.tr("description")
+          : "description"
+      );
+    if (displayOptions.content)
+      searchFields.push(
+        window.Asc.plugin.tr ? window.Asc.plugin.tr("content") : "content"
+      );
+
+    const allFieldsText = window.Asc.plugin.tr
+      ? window.Asc.plugin.tr("all fields")
+      : "all fields";
     const searchFieldsText =
-      searchFields.length === 0 ? "all fields" : searchFields.join(", ");
-    const headerText = `Success! ${count} results were found by ${searchFieldsText}`;
+      searchFields.length === 0 ? allFieldsText : searchFields.join(", ");
+    const successText = window.Asc.plugin.tr
+      ? window.Asc.plugin.tr("Success! {0} results were found by {1}")
+      : "Success! {0} results were found by {1}";
+    const headerText = successText
+      .replace("{0}", count)
+      .replace("{1}", searchFieldsText);
 
     resultsHeader.textContent = headerText;
   }
@@ -912,7 +941,6 @@
   window.goBackToSearch = function () {
     showSearchForm();
     currentArticles = [];
-    console.log("test");
     const status = $("status");
     if (status) {
       status.textContent = "";

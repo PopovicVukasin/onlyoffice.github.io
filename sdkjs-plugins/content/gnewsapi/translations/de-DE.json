@@ -2,7 +2,7 @@
   "Search through millions of articles": "Durchsuchen Sie Millionen von Artikeln aus über 80.000 großen und kleinen Nachrichtenquellen und Blogs.",
   "API key": "API-Schlüssel:",
   "Enter your GNews API key": "Geben Sie Ihren GNews API-Schlüssel ein",
-  "Get your free API key": "Holen Sie sich Ihren kostenlosen API-Schlüssel von",
+  "Get your free API key": "Erhalten Sie Ihren kostenlosen API-Schlüssel von",
   "Login": "Anmelden",
   "Search": "Suchen",
   "Top Headlines": "Top-Schlagzeilen",
@@ -52,5 +52,8 @@
   "Arabic": "Arabisch",
   "Russian": "Russisch",
   "Hindi": "Hindi",
-  "Korean": "Koreanisch"
+  "Korean": "Koreanisch",
+  "No articles found for your search": "Keine Artikel für Ihre Suche gefunden",
+  "Success! {0} results were found by {1}": "Erfolg! {0} Ergebnisse wurden durch {1} gefunden",
+  "all fields": "alle Felder"
 }

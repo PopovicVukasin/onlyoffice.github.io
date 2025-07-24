@@ -6,7 +6,7 @@
   "Login": "ログイン",
   "Search": "検索",
   "Top Headlines": "トップニュース",
-  "Prompt": "クエリ",
+  "Prompt": "プロンプト",
   "Search with keywords": "単一のキーワードで検索するか、完全なフレーズを引用符で囲んでください",
   "Search in": "検索対象",
   "Title": "タイトル",
@@ -52,5 +52,8 @@
   "Arabic": "アラビア語",
   "Russian": "ロシア語",
   "Hindi": "ヒンディー語",
-  "Korean": "韓国語"
+  "Korean": "韓国語",
+  "No articles found for your search": "検索条件に一致する記事が見つかりませんでした",
+  "Success! {0} results were found by {1}": "成功！{1}で{0}件の結果が見つかりました",
+  "all fields": "すべてのフィールド"
 }

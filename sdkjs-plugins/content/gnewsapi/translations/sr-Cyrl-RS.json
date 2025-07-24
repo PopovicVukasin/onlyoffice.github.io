@@ -52,5 +52,8 @@
   "Arabic": "Арапски",
   "Russian": "Руски",
   "Hindi": "Хинди",
-  "Korean": "Корејски"
+  "Korean": "Корејски",
+  "No articles found for your search": "Нема чланака за вашу претрагу",
+  "Success! {0} results were found by {1}": "Успех! Пронађено је {0} резултата путем {1}",
+  "all fields": "сва поља"
 }

@@ -52,5 +52,8 @@
   "Arabic": "අරාබි",
   "Russian": "රුසියානු",
   "Hindi": "හින්දි",
-  "Korean": "කොරියානු"
+  "Korean": "කොරියානු",
+  "No articles found for your search": "ඔබගේ සෙවීම සඳහා කිසිදු ලිපියක් හමු නොවීය",
+  "Success! {0} results were found by {1}": "සාර්ථකයි! {1} මගින් {0} ප්‍රතිඵල හමු විය",
+  "all fields": "සියලුම ක්ෂේත්‍ර"
 }
