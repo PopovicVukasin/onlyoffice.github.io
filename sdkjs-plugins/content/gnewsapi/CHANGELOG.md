@@ -22,3 +22,11 @@
 
 - Added larger icon sizes for marketplace submission
 - Prepared marketplace documentation and assets
+
+## 0.1.3
+
+- Added persistent API key storage using localStorage - users no longer need to re-enter API key each time
+- Fixed "Show advanced settings" translation - now properly translates in all languages
+- Enhanced API key management with automatic loading and pre-filling of stored keys
+- Improved plugin initialization to automatically show search interface when API key is stored
+- Added comprehensive error handling for localStorage operations with fallback support

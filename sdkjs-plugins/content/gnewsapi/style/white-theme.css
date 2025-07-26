@@ -23,8 +23,6 @@ body {
   margin: 0;
   color: var(--color-text);
   height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 input,
@@ -119,8 +117,6 @@ button:hover,
 .setup-screen,
 .search-screen {
   max-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 .search-form-container,

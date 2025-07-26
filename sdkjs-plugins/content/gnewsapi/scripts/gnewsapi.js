@@ -3,6 +3,37 @@
   let currentArticles = [];
   let currentTab = "search";
 
+  const STORAGE_KEY = "gnews-api-key";
+
+  function saveApiKeyToStorage(apiKey) {
+    try {
+      localStorage.setItem(STORAGE_KEY, apiKey);
+      return true;
+    } catch (error) {
+      console.error("Failed to save API key to localStorage:", error);
+      return false;
+    }
+  }
+
+  function loadApiKeyFromStorage() {
+    try {
+      return localStorage.getItem(STORAGE_KEY) || "";
+    } catch (error) {
+      console.error("Failed to load API key from localStorage:", error);
+      return "";
+    }
+  }
+
+  function removeApiKeyFromStorage() {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      return true;
+    } catch (error) {
+      console.error("Failed to remove API key from localStorage:", error);
+      return false;
+    }
+  }
+
   function $(id) {
     return document.getElementById(id);
   }
@@ -28,10 +59,27 @@
   window.Asc.plugin.init = function () {
     try {
       console.log("GNews sidebar plugin initialized");
+
+      const storedApiKey = loadApiKeyFromStorage();
+      if (storedApiKey) {
+        savedApiKey = storedApiKey;
+        console.log("Loaded API key from storage");
+      }
+
       setTimeout(function () {
         initializeDisplayOptions();
         createAdvancedSettings();
-        showApiSetup();
+
+        if (savedApiKey) {
+          showSearchInterface();
+          setTimeout(function () {
+            const searchInput = $("search-query");
+            if (searchInput) searchInput.focus();
+          }, 100);
+        } else {
+          showApiSetup();
+        }
+
         setupEventListeners();
         applyTranslations();
       }, 50);
@@ -181,7 +229,12 @@
     if (headlinesBtn && headlinesBtn.textContent.trim() === "Find") {
       headlinesBtn.textContent = window.Asc.plugin.tr("Find");
     }
-
+    const advancedSettingsBtn = $("advanced-settings-btn");
+    if (advancedSettingsBtn) {
+      advancedSettingsBtn.textContent = window.Asc.plugin.tr(
+        "Show advanced settings"
+      );
+    }
     const reconfigureBtn = $("reconfigure-btn");
     if (reconfigureBtn) {
       reconfigureBtn.textContent = window.Asc.plugin.tr("Reconfigure");
@@ -408,6 +461,11 @@
   function showApiSetup() {
     $("api-setup").style.display = "block";
     $("search-interface").style.display = "none";
+
+    const apiKeyInput = $("api-key-setup");
+    if (apiKeyInput && savedApiKey) {
+      apiKeyInput.value = savedApiKey;
+    }
   }
 
   function showSearchInterface() {
@@ -499,6 +557,15 @@
 
       if (isValid) {
         savedApiKey = apiKey;
+
+        if (saveApiKeyToStorage(apiKey)) {
+          console.log("API key saved to localStorage");
+        } else {
+          console.warn(
+            "Failed to save API key to localStorage, but continuing anyway"
+          );
+        }
+
         showSearchInterface();
         showStatus(message, false);
         setTimeout(function () {
@@ -561,7 +628,7 @@
 
     const advancedBtn = $("advanced-settings-btn");
     if (advancedBtn) {
-      advancedBtn.textContent = "Show advanced settings";
+      advancedBtn.textContent = window.Asc.plugin.tr("Show advanced settings");
     }
 
     const searchAdvanced = $("search-advanced-settings");
@@ -879,6 +946,12 @@
 
   window.changeApiKey = function () {
     savedApiKey = "";
+    if (removeApiKeyFromStorage()) {
+      console.log("API key removed from localStorage");
+    } else {
+      console.warn("Failed to remove API key from localStorage");
+    }
+
     showApiSetup();
     const apiKeyInput = $("api-key-setup");
     if (apiKeyInput) apiKeyInput.value = "";
@@ -901,9 +974,9 @@
           : "Hide advanced settings";
       } else {
         advancedSection.style.display = "none";
-        advancedBtn.textContent = window.Asc.plugin.tr
-          ? window.Asc.plugin.tr("Show advanced settings")
-          : "Show advanced settings";
+        advancedBtn.textContent = window.Asc.plugin.tr(
+          "Show advanced settings"
+        );
       }
     }
   };
@@ -923,14 +996,12 @@
   };
 
   window.addEventListener("beforeunload", function (e) {
-    savedApiKey = "";
     currentArticles = [];
     currentTab = "search";
   });
 
   window.Asc.plugin.executeCommand = function (command, data) {
     if (command === "close") {
-      savedApiKey = "";
       currentArticles = [];
       currentTab = "search";
     }
