@@ -102,9 +102,9 @@
     link.media = "all";
 
     if (theme.type === "dark") {
-      link.href = "./style/black-theme.css";
+      link.href = "./resources/style/dark-theme.css";
     } else {
-      link.href = "./style/white-theme.css";
+      link.href = "./resources/style/light-theme.css";
     }
 
     head.appendChild(link);
