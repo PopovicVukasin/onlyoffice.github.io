@@ -30,3 +30,10 @@
 - Enhanced API key management with automatic loading and pre-filling of stored keys
 - Improved plugin initialization to automatically show search interface when API key is stored
 - Added comprehensive error handling for localStorage operations with fallback support
+
+## 0.2.0
+
+- Major refactoring: Split monolithic code into modular architecture
+- Created separate modules: storage.js, api.js, ui.js, translations.js
+- Enhanced error handling and separation of concerns
+- Zero breaking changes - all existing functionality preserved
