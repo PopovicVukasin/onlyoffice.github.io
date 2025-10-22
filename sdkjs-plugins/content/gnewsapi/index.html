@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8" />
-    <title>GNews</title>
+    <title>News</title>
     <script
       type="text/javascript"
       src="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.js"
@@ -15,6 +15,8 @@
       rel="stylesheet"
       href="https://onlyoffice.github.io/sdkjs-plugins/v1/plugins.css"
     />
+    <!-- Load modules in dependency order -->
+    <script type="text/javascript" src="scripts/providers.js"></script>
     <script type="text/javascript" src="scripts/storage.js"></script>
     <script type="text/javascript" src="scripts/api.js"></script>
     <script type="text/javascript" src="scripts/ui.js"></script>
@@ -32,15 +34,23 @@
       </div>
 
       <div class="form-group">
+        <label for="provider-select" id="provider-label">News Provider:</label>
+        <select id="provider-select" onchange="changeProvider()">
+          <option value="gnews">GNews</option>
+          <option value="thenewsapi">TheNewsAPI</option>
+        </select>
+      </div>
+
+      <div class="form-group">
         <label for="api-key-setup" id="api-key-label">API key:</label>
         <input
           type="password"
           id="api-key-setup"
-          placeholder="Enter your GNews API key"
+          placeholder="Enter your API key"
         />
         <div class="help-text">
           <span id="get-api-key-text">Get your free API key from</span>
-          <a href="https://gnews.io" target="_blank">gnews.io</a>
+          <a href="https://gnews.io" target="_blank" id="provider-website-link">gnews.io</a>
         </div>
       </div>
 
@@ -92,7 +102,7 @@
             ></textarea>
           </div>
 
-          <div class="filter-section">
+          <div class="filter-section" id="search-in-section">
             <div class="filter-header" id="search-in-label">Search in</div>
             <div class="checkbox-group">
               <label class="checkbox-item">

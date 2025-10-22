@@ -1,18 +1,27 @@
 /**
- * GNews Plugin - Main Entry Point
+ * News Plugin - Main Entry Point
  * Coordinates between API, UI, Storage, and Translation modules
  */
 
 (function (window, undefined) {
   "use strict";
+
+  // Plugin state
   let savedApiKey = "";
+  let savedProvider = "gnews";
 
   /**
-   * Init plugin
+   * Initialize the plugin
    */
   window.Asc.plugin.init = function () {
     try {
-      console.log("GNews sidebar plugin initialized");
+      console.log("News plugin initialized");
+
+      // Load saved provider
+      savedProvider = window.GNewsStorage.loadProvider();
+      window.GNewsAPI.setProvider(savedProvider);
+      window.NewsProviders.setProvider(savedProvider);
+      console.log("Loaded provider:", savedProvider);
 
       // Load saved API key
       savedApiKey = window.GNewsStorage.loadApiKey();
@@ -25,6 +34,8 @@
       setTimeout(function () {
         window.GNewsUI.initializeDisplayOptions();
         window.GNewsUI.createAdvancedSettings();
+        window.GNewsUI.initializeProviderSelector(savedProvider);
+        window.GNewsUI.updateProviderInfo();
 
         if (savedApiKey) {
           window.GNewsUI.showSearchInterface();
@@ -45,7 +56,7 @@
   };
 
   /**
-   * Theme changes
+   * Handle theme changes
    */
   window.Asc.plugin.onThemeChanged = function (theme) {
     const head = document.getElementsByTagName("head")[0];
@@ -189,6 +200,42 @@
   };
 
   /**
+   * Change provider
+   */
+  window.changeProvider = function () {
+    const providerSelect = window.GNewsUI.$("provider-select");
+    if (!providerSelect) return;
+
+    const newProvider = providerSelect.value;
+    savedProvider = newProvider;
+    
+    window.GNewsAPI.setProvider(newProvider);
+    window.NewsProviders.setProvider(newProvider);
+    window.GNewsStorage.saveProvider(newProvider);
+    window.GNewsUI.currentProvider = newProvider;
+    window.GNewsUI.updateProviderInfo();
+    
+    console.log("Provider changed to:", newProvider);
+    
+    // Clear API key since different providers need different keys
+    if (savedApiKey) {
+      window.GNewsUI.showStatus(
+        "Provider changed. Please enter your API key for " + 
+        window.NewsProviders.getCurrentProvider().name,
+        false
+      );
+      savedApiKey = "";
+      window.GNewsAPI.setApiKey("");
+      window.GNewsStorage.removeApiKey();
+      
+      const apiKeyInput = window.GNewsUI.$("api-key-setup");
+      if (apiKeyInput) {
+        apiKeyInput.value = "";
+      }
+    }
+  };
+
+  /**
    * Switch between tabs
    */
   window.switchTab = function (tabName) {
@@ -265,6 +312,8 @@
       country: country,
       language: settings.language,
       query: query,
+      domains: settings.domains,
+      exclude_domains: settings.exclude_domains,
     };
 
     window.GNewsAPI.getTopHeadlines(params, function (result) {

@@ -1,7 +1,7 @@
 {
-  "name": "GNews API",
+  "name": "News",
   "guid": "asc.{0616AE85-5DBE-4B6B-A0A9-455C4F1503AD}",
-  "version": "0.1.3",
+  "version": "0.3.0",
   "baseUrl": "",
   "variations": [
     {

@@ -1,18 +1,39 @@
 /**
- * API Manager for GNews Plugin
- * Handles all interactions with the GNews API
+ * API Manager for News Plugin
+ * Handles all interactions with news APIs
  */
 
 (function (window) {
   "use strict";
 
-  const BASE_URL = "https://gnews.io/api/v4";
-
+  /**
+   * API Manager
+   */
   var APIManager = {
     apiKey: "",
+    provider: null,
 
+    /**
+     * Set the API key for subsequent requests
+     * @param {string} key - The API key
+     */
     setApiKey: function (key) {
       this.apiKey = key;
+    },
+
+    /**
+     * Set the provider for subsequent requests
+     * @param {string} providerId - The provider ID
+     */
+    setProvider: function (providerId) {
+      this.provider = window.NewsProviders.setProvider(providerId);
+    },
+
+    /**
+     * Get current provider
+     */
+    getProvider: function () {
+      return this.provider || window.NewsProviders.getCurrentProvider();
     },
 
     /**
@@ -34,14 +55,16 @@
     /**
      * Perform a generic API call
      * @param {string} url - The API endpoint URL
-     * @param {function} callback - Callback function(articles)
+     * @param {function} callback - Callback function(result)
      */
     performAPICall: function (url, callback) {
+      var provider = this.getProvider();
+      
       fetch(url)
         .then(function (response) {
           if (response.ok) return response.json();
           
-          // Handle HTTP errors
+          // Handle specific HTTP errors
           throw new Error(
             response.status === 401
               ? "Invalid API token"
@@ -53,15 +76,9 @@
           );
         })
         .then(function (data) {
-          if (data.articles && Array.isArray(data.articles)) {
-            callback({ success: true, articles: data.articles });
-          } else {
-            callback({
-              success: false,
-              error: data.error || "No articles found",
-              articles: [],
-            });
-          }
+          // Use provider-specific response parser
+          var result = provider.parseResponse(data);
+          callback(result);
         })
         .catch(function (error) {
           console.error("API error:", error);
@@ -85,12 +102,8 @@
      */
     validateApiKey: function (apiKey, callback) {
       try {
-        const testUrl = this.buildUrl(BASE_URL + "/search", {
-          q: "technology",
-          token: apiKey,
-          max: 1,
-          lang: "en",
-        });
+        var provider = this.getProvider();
+        const testUrl = provider.buildValidationUrl(apiKey);
 
         fetch(testUrl)
           .then(function (response) {
@@ -122,13 +135,8 @@
      */
     search: function (query, settings, callback) {
       try {
-        const searchUrl = this.buildUrl(BASE_URL + "/search", {
-          q: query,
-          token: this.apiKey,
-          lang: settings.language || "en",
-          sortby: settings.sortBy || "publishedAt",
-          country: settings.country || "us",
-        });
+        var provider = this.getProvider();
+        const searchUrl = provider.buildSearchUrl(this.apiKey, query, settings);
 
         this.performAPICall(searchUrl, callback);
       } catch (error) {
@@ -144,16 +152,8 @@
      */
     getTopHeadlines: function (params, callback) {
       try {
-        const urlParams = {
-          token: this.apiKey,
-          lang: params.language || "en",
-        };
-
-        if (params.category) urlParams.category = params.category;
-        if (params.country) urlParams.country = params.country;
-        if (params.query) urlParams.q = params.query;
-
-        const headlinesUrl = this.buildUrl(BASE_URL + "/top-headlines", urlParams);
+        var provider = this.getProvider();
+        const headlinesUrl = provider.buildHeadlinesUrl(this.apiKey, params);
 
         this.performAPICall(headlinesUrl, callback);
       } catch (error) {
@@ -163,5 +163,6 @@
     },
   };
 
+  // Export to global scope
   window.GNewsAPI = APIManager;
 })(window);

@@ -1,5 +1,5 @@
 /**
- * Translation Manager for GNews Plugin
+ * Translation Manager for News Plugin
  * Handles all UI translations
  */
 
@@ -7,10 +7,16 @@
   "use strict";
 
   var TranslationManager = {
+    /**
+     * Helper function to get element by ID
+     */
     $: function (id) {
       return document.getElementById(id);
     },
 
+    /**
+     * Safely translate element text content
+     */
     translateElement: function (elementId, key) {
       const element = this.$(elementId);
       if (element && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
@@ -18,6 +24,9 @@
       }
     },
 
+    /**
+     * Safely translate input placeholder
+     */
     translatePlaceholder: function (elementId, key) {
       const element = this.$(elementId);
       if (element && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
@@ -33,7 +42,8 @@
       this.translateElement("description-text", "Search through millions of articles");
       this.translateElement("description-text-2", "Search through millions of articles");
       this.translateElement("api-key-label", "API key");
-      this.translatePlaceholder("api-key-setup", "Enter your GNews API key");
+      this.translateElement("provider-label", "News Provider");
+      this.translatePlaceholder("api-key-setup", "Enter your API key");
       this.translateElement("get-api-key-text", "Get your free API key");
 
       // Check button text before translating
@@ -154,9 +164,28 @@
             }
           });
         }
+        
+        // Translate domains label if it exists (TheNewsAPI only)
+        const domainsLabel = document.querySelector('label[for="' + prefix + '-domains"]');
+        if (domainsLabel && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          domainsLabel.textContent = window.Asc.plugin.tr("Domains") + ':';
+        }
+        
+        // Translate domains placeholder if it exists
+        const domainsInput = self.$(prefix + "-domains");
+        if (domainsInput && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          domainsInput.placeholder = window.Asc.plugin.tr("e.g., bbc.co.uk, cnn.com");
+        }
+        
+        // Translate locale label if it exists (TheNewsAPI only)
+        const localeLabel = document.querySelector('label[for="' + prefix + '-locale"]');
+        if (localeLabel && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          localeLabel.textContent = window.Asc.plugin.tr("Locale") + ':';
+        }
       });
     },
   };
 
+  // Export to global scope
   window.GNewsTranslations = TranslationManager;
 })(window);
