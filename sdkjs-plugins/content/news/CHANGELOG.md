@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.4.0
+
+- Added WorldNewsAPI as a third news provider
+- WorldNewsAPI: Advanced filtering
+
 ## 0.3.0
 
 - Added support for multiple news providers (GNews and TheNewsAPI)

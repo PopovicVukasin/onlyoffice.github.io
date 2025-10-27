@@ -227,11 +227,30 @@
       const domainsElement = this.$(tabPrefix + "-domains");
       const excludeDomainsElement = this.$(tabPrefix + "-exclude-domains");
       const searchFieldsElement = this.$(tabPrefix + "-search-fields");
+      const authorsElement = this.$(tabPrefix + "-authors");
+      const categoriesElement = this.$(tabPrefix + "-categories");
 
       var settings = {
         sortBy: sortElement ? sortElement.value || "publishedAt" : "publishedAt",
         language: langElement ? langElement.value || "en" : "en",
       };
+      
+      // Add "Search In" settings (for GNews and WorldNewsAPI)
+      if (tabPrefix === "search") {
+        const showTitle = this.$("show-title");
+        const showDescription = this.$("show-description");
+        const showContent = this.$("show-content");
+        
+        if (showTitle && showDescription && showContent) {
+          var searchInParts = [];
+          if (showTitle.checked) searchInParts.push("title");
+          if (showDescription.checked || showContent.checked) searchInParts.push("description");
+          
+          if (searchInParts.length > 0) {
+            settings.searchIn = searchInParts.join(",");
+          }
+        }
+      }
       
       // Add provider-specific settings
       if (domainsElement && domainsElement.value) {
@@ -244,6 +263,14 @@
       
       if (searchFieldsElement && searchFieldsElement.value) {
         settings.search_fields = searchFieldsElement.value;
+      }
+      
+      if (authorsElement && authorsElement.value) {
+        settings.authors = authorsElement.value;
+      }
+      
+      if (categoriesElement && categoriesElement.value) {
+        settings.categories = categoriesElement.value;
       }
       
       return settings;
@@ -262,6 +289,9 @@
           supportsExcludeDomains: false,
           supportsCategories: false,
           supportsExcludeCategories: false,
+          supportsAuthors: false,
+          supportsHeadlinesQuery: true, 
+          supportsHeadlinesCategory: true, 
           sortOptions: [
             { value: "publishedAt", label: "Publication Date" },
             { value: "relevance", label: "Relevance" }
@@ -276,9 +306,29 @@
           supportsExcludeDomains: true,
           supportsCategories: true,
           supportsExcludeCategories: true,
+          supportsAuthors: false,
+          supportsHeadlinesQuery: true,
+          supportsHeadlinesCategory: true,
           sortOptions: [
             { value: "published_at", label: "Publication Date" },
             { value: "relevance_score", label: "Relevance" }
+          ]
+        };
+      } else if (providerId === "worldnewsapi") {
+        return {
+          supportsDomains: true,
+          supportsSearchIn: true,
+          supportsLocale: false,
+          supportsSearchFields: false,
+          supportsExcludeDomains: false,
+          supportsCategories: true,
+          supportsExcludeCategories: false,
+          supportsAuthors: true,
+          supportsHeadlinesQuery: false,
+          supportsHeadlinesCategory: false,
+          sortOptions: [
+            { value: "publish-time", label: "Publication Date" },
+            { value: "relevance", label: "Relevance" }
           ]
         };
       }
@@ -291,6 +341,9 @@
         supportsExcludeDomains: false,
         supportsCategories: false,
         supportsExcludeCategories: false,
+        supportsAuthors: false,
+        supportsHeadlinesQuery: true,
+        supportsHeadlinesCategory: true,
         sortOptions: [
           { value: "publishedAt", label: "Publication Date" },
           { value: "relevance", label: "Relevance" }
@@ -305,60 +358,102 @@
       var config = this.getProviderAdvancedConfig(this.currentProvider);
       var tr = window.Asc && window.Asc.plugin && window.Asc.plugin.tr ? window.Asc.plugin.tr : function(s) { return s; };
       
-      var advancedHTML = "";
+      // Helper function to build base HTML (sort + language)
+      var buildBaseHTML = function() {
+        var html = "";
+        
+        // Sort by dropdown (common to all providers)
+        html += '<div class="form-group">';
+        html += '<label for="PREFIX-sortby">' + tr("Sort by") + ':</label>';
+        html += '<select id="PREFIX-sortby">';
+        config.sortOptions.forEach(function(opt) {
+          html += '<option value="' + opt.value + '">' + tr(opt.label) + '</option>';
+        });
+        html += '</select>';
+        html += '</div>';
+        
+        // Language dropdown (common to all providers)
+        html += '<div class="form-group">';
+        html += '<label for="PREFIX-lang">' + tr("Language") + ':</label>';
+        html += '<select id="PREFIX-lang">';
+        html += '<option value="en">' + tr("English") + '</option>';
+        html += '<option value="es">' + tr("Spanish") + '</option>';
+        html += '<option value="fr">' + tr("French") + '</option>';
+        html += '<option value="de">' + tr("German") + '</option>';
+        html += '<option value="it">' + tr("Italian") + '</option>';
+        html += '<option value="pt">' + tr("Portuguese") + '</option>';
+        html += '<option value="ja">' + tr("Japanese") + '</option>';
+        html += '<option value="zh">' + tr("Chinese") + '</option>';
+        html += '<option value="ar">' + tr("Arabic") + '</option>';
+        html += '<option value="ru">' + tr("Russian") + '</option>';
+        html += '<option value="hi">' + tr("Hindi") + '</option>';
+        html += '<option value="ko">' + tr("Korean") + '</option>';
+        html += '</select>';
+        html += '</div>';
+        
+        return html;
+      };
       
-      // Sort by dropdown (common to all providers)
-      advancedHTML += '<div class="form-group">';
-      advancedHTML += '<label for="PREFIX-sortby">' + tr("Sort by") + ':</label>';
-      advancedHTML += '<select id="PREFIX-sortby">';
-      config.sortOptions.forEach(function(opt) {
-        advancedHTML += '<option value="' + opt.value + '">' + tr(opt.label) + '</option>';
-      });
-      advancedHTML += '</select>';
-      advancedHTML += '</div>';
+      // Helper function to build provider-specific fields
+      var buildProviderFields = function(isHeadlines) {
+        var html = "";
+        
+        // For WorldNewsAPI Top Headlines, skip domains, authors, and categories
+        if (isHeadlines && this.currentProvider === "worldnewsapi") {
+          // Don't add domains, authors, or categories for WorldNewsAPI headlines
+          return html;
+        }
+        
+        // Provider-specific: Domains (TheNewsAPI and WorldNewsAPI search)
+        if (config.supportsDomains) {
+          html += '<div class="form-group">';
+          html += '<label for="PREFIX-domains">' + tr("Domains") + ':</label>';
+          html += '<input type="text" id="PREFIX-domains" placeholder="' + tr("e.g., bbc.co.uk, cnn.com") + '" />';
+          html += '<div class="help-text">' + tr("Comma-separated list of domains to include") + '</div>';
+          html += '</div>';
+        }
+        
+        // Provider-specific: Exclude Domains (TheNewsAPI)
+        if (config.supportsExcludeDomains) {
+          html += '<div class="form-group">';
+          html += '<label for="PREFIX-exclude-domains">' + tr("Exclude Domains") + ':</label>';
+          html += '<input type="text" id="PREFIX-exclude-domains" placeholder="' + tr("e.g., example.com") + '" />';
+          html += '<div class="help-text">' + tr("Comma-separated list of domains to exclude") + '</div>';
+          html += '</div>';
+        }
+        
+        // Provider-specific: Authors (WorldNewsAPI search only)
+        if (config.supportsAuthors) {
+          html += '<div class="form-group">';
+          html += '<label for="PREFIX-authors">' + tr("Authors") + ':</label>';
+          html += '<input type="text" id="PREFIX-authors" placeholder="' + tr("e.g., John Doe, Jane Smith") + '" />';
+          html += '<div class="help-text">' + tr("Comma-separated list of author names") + '</div>';
+          html += '</div>';
+        }
+        
+        // Provider-specific: Categories (WorldNewsAPI search and TheNewsAPI)
+        if (config.supportsCategories) {
+          html += '<div class="form-group">';
+          html += '<label for="PREFIX-categories">' + tr("Categories Filter") + ':</label>';
+          html += '<input type="text" id="PREFIX-categories" placeholder="' + tr("e.g., politics, sports") + '" />';
+          html += '<div class="help-text">' + tr("Comma-separated list of categories") + '</div>';
+          html += '</div>';
+        }
+        
+        return html;
+      }.bind(this);
       
-      // Language dropdown (common to all providers)
-      advancedHTML += '<div class="form-group">';
-      advancedHTML += '<label for="PREFIX-lang">' + tr("Language") + ':</label>';
-      advancedHTML += '<select id="PREFIX-lang">';
-      advancedHTML += '<option value="en">' + tr("English") + '</option>';
-      advancedHTML += '<option value="es">' + tr("Spanish") + '</option>';
-      advancedHTML += '<option value="fr">' + tr("French") + '</option>';
-      advancedHTML += '<option value="de">' + tr("German") + '</option>';
-      advancedHTML += '<option value="it">' + tr("Italian") + '</option>';
-      advancedHTML += '<option value="pt">' + tr("Portuguese") + '</option>';
-      advancedHTML += '<option value="ja">' + tr("Japanese") + '</option>';
-      advancedHTML += '<option value="zh">' + tr("Chinese") + '</option>';
-      advancedHTML += '<option value="ar">' + tr("Arabic") + '</option>';
-      advancedHTML += '<option value="ru">' + tr("Russian") + '</option>';
-      advancedHTML += '<option value="hi">' + tr("Hindi") + '</option>';
-      advancedHTML += '<option value="ko">' + tr("Korean") + '</option>';
-      advancedHTML += '</select>';
-      advancedHTML += '</div>';
+      // Build HTML for search tab
+      var searchHTML = buildBaseHTML() + buildProviderFields(false);
       
-      // Provider-specific: Domains (TheNewsAPI)
-      if (config.supportsDomains) {
-        advancedHTML += '<div class="form-group">';
-        advancedHTML += '<label for="PREFIX-domains">' + tr("Domains") + ':</label>';
-        advancedHTML += '<input type="text" id="PREFIX-domains" placeholder="' + tr("e.g., bbc.co.uk, cnn.com") + '" />';
-        advancedHTML += '<div class="help-text">' + tr("Comma-separated list of domains to include") + '</div>';
-        advancedHTML += '</div>';
-      }
-      
-      // Provider-specific: Exclude Domains (TheNewsAPI)
-      if (config.supportsExcludeDomains) {
-        advancedHTML += '<div class="form-group">';
-        advancedHTML += '<label for="PREFIX-exclude-domains">' + tr("Exclude Domains") + ':</label>';
-        advancedHTML += '<input type="text" id="PREFIX-exclude-domains" placeholder="' + tr("e.g., example.com") + '" />';
-        advancedHTML += '<div class="help-text">' + tr("Comma-separated list of domains to exclude") + '</div>';
-        advancedHTML += '</div>';
-      }
+      // Build HTML for headlines tab
+      var headlinesHTML = buildBaseHTML() + buildProviderFields(true);
       
       // Provider-specific: Search Fields (TheNewsAPI, search only)
       if (config.supportsSearchFields) {
         var searchFieldsHTML = '<div class="form-group">';
-        searchFieldsHTML += '<label for="PREFIX-search-fields">' + tr("Search Fields") + ':</label>';
-        searchFieldsHTML += '<select id="PREFIX-search-fields">';
+        searchFieldsHTML += '<label for="search-search-fields">' + tr("Search Fields") + ':</label>';
+        searchFieldsHTML += '<select id="search-search-fields">';
         searchFieldsHTML += '<option value="title,main_text">' + tr("Title and Content") + '</option>';
         searchFieldsHTML += '<option value="title">' + tr("Title Only") + '</option>';
         searchFieldsHTML += '<option value="description">' + tr("Description Only") + '</option>';
@@ -369,34 +464,29 @@
         searchFieldsHTML += '<div class="help-text">' + tr("Fields to search within") + '</div>';
         searchFieldsHTML += '</div>';
         
-        // Only add to search tab
-        var searchOptionsEl = this.$('search-advanced-options');
-        if (searchOptionsEl) {
-          searchOptionsEl.innerHTML = advancedHTML.replace(/PREFIX/g, 'search') + searchFieldsHTML.replace(/PREFIX/g, 'search');
-        }
-        
-        // For headlines, use regular HTML without search fields
-        var headlinesOptionsEl = this.$('headlines-advanced-options');
-        if (headlinesOptionsEl) {
-          headlinesOptionsEl.innerHTML = advancedHTML.replace(/PREFIX/g, 'headlines');
-        }
-        
-        // Update "Search In" visibility
-        this.updateSearchInVisibility(config.supportsSearchIn);
-        return; // Early return since we handled both tabs
+        searchHTML += searchFieldsHTML;
       }
-
-      // For providers without search fields, use same HTML for both tabs
-      var self = this;
-      ["search", "headlines"].forEach(function (prefix) {
-        const optionsEl = self.$(prefix + "-advanced-options");
-        if (optionsEl) {
-          optionsEl.innerHTML = advancedHTML.replace(/PREFIX/g, prefix);
-        }
-      });
+      
+      // Apply HTML to search tab
+      var searchOptionsEl = this.$('search-advanced-options');
+      if (searchOptionsEl) {
+        searchOptionsEl.innerHTML = searchHTML.replace(/PREFIX/g, 'search');
+      }
+      
+      // Apply HTML to headlines tab
+      var headlinesOptionsEl = this.$('headlines-advanced-options');
+      if (headlinesOptionsEl) {
+        headlinesOptionsEl.innerHTML = headlinesHTML.replace(/PREFIX/g, 'headlines');
+      }
       
       // Update "Search In" visibility for search tab
       this.updateSearchInVisibility(config.supportsSearchIn);
+      
+      // Update headlines query visibility based on provider
+      this.updateHeadlinesQueryVisibility(config.supportsHeadlinesQuery);
+      
+      // Update headlines category visibility based on provider
+      this.updateHeadlinesCategoryVisibility(config.supportsHeadlinesCategory);
     },
 
     /**
@@ -406,6 +496,28 @@
       var searchInSection = this.$('search-in-section');
       if (searchInSection) {
         searchInSection.style.display = visible ? 'block' : 'none';
+      }
+    },
+
+    /**
+     * Update headlines query field visibility based on provider support
+     */
+    updateHeadlinesQueryVisibility: function (visible) {
+      var headlinesQueryGroup = this.$('headlines-query');
+      if (headlinesQueryGroup && headlinesQueryGroup.parentElement) {
+        // Hide/show the entire form-group containing the query field
+        headlinesQueryGroup.parentElement.style.display = visible ? 'block' : 'none';
+      }
+    },
+
+    /**
+     * Update headlines category field visibility based on provider support
+     */
+    updateHeadlinesCategoryVisibility: function (visible) {
+      var headlinesCategoryGroup = this.$('headlines-category');
+      if (headlinesCategoryGroup && headlinesCategoryGroup.parentElement) {
+        // Hide/show the entire form-group containing the category field
+        headlinesCategoryGroup.parentElement.style.display = visible ? 'block' : 'none';
       }
     },
 

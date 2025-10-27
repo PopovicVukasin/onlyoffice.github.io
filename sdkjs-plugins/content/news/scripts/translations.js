@@ -177,6 +177,30 @@
           domainsInput.placeholder = window.Asc.plugin.tr("e.g., bbc.co.uk, cnn.com");
         }
         
+        // Translate authors label if it exists (WorldNewsAPI only)
+        const authorsLabel = document.querySelector('label[for="' + prefix + '-authors"]');
+        if (authorsLabel && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          authorsLabel.textContent = window.Asc.plugin.tr("Authors") + ':';
+        }
+        
+        // Translate authors placeholder if it exists
+        const authorsInput = self.$(prefix + "-authors");
+        if (authorsInput && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          authorsInput.placeholder = window.Asc.plugin.tr("e.g., John Doe, Jane Smith");
+        }
+        
+        // Translate categories label if it exists (WorldNewsAPI and TheNewsAPI)
+        const categoriesLabel = document.querySelector('label[for="' + prefix + '-categories"]');
+        if (categoriesLabel && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          categoriesLabel.textContent = window.Asc.plugin.tr("Categories Filter") + ':';
+        }
+        
+        // Translate categories placeholder if it exists
+        const categoriesInput = self.$(prefix + "-categories");
+        if (categoriesInput && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {
+          categoriesInput.placeholder = window.Asc.plugin.tr("e.g., politics, sports");
+        }
+        
         // Translate locale label if it exists (TheNewsAPI only)
         const localeLabel = document.querySelector('label[for="' + prefix + '-locale"]');
         if (localeLabel && window.Asc && window.Asc.plugin && window.Asc.plugin.tr) {

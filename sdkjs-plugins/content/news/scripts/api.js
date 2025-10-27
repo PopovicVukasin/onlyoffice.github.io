@@ -60,7 +60,19 @@
     performAPICall: function (url, callback) {
       var provider = this.getProvider();
       
-      fetch(url)
+      // Prepare fetch options
+      var fetchOptions = {
+        method: 'GET',
+      };
+      
+      // WorldNewsAPI uses header-based authentication
+      if (provider.id === 'worldnewsapi') {
+        fetchOptions.headers = {
+          'x-api-key': this.apiKey,
+        };
+      }
+      
+      fetch(url, fetchOptions)
         .then(function (response) {
           if (response.ok) return response.json();
           
@@ -105,7 +117,19 @@
         var provider = this.getProvider();
         const testUrl = provider.buildValidationUrl(apiKey);
 
-        fetch(testUrl)
+        // Prepare fetch options
+        var fetchOptions = {
+          method: 'GET',
+        };
+        
+        // WorldNewsAPI uses header-based authentication
+        if (provider.id === 'worldnewsapi') {
+          fetchOptions.headers = {
+            'x-api-key': apiKey,
+          };
+        }
+
+        fetch(testUrl, fetchOptions)
           .then(function (response) {
             if (response.ok) return response.json();
             throw new Error(

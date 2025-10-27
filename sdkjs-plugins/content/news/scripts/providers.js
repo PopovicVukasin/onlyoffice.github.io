@@ -24,13 +24,20 @@
 
       // Build search URL
       buildSearchUrl: function (apiKey, query, settings) {
-        return this.buildUrl(this.baseUrl + this.endpoints.search, {
+        var urlParams = {
           q: query,
           token: apiKey,
           lang: settings.language || "en",
           sortby: settings.sortBy || "publishedAt",
           country: settings.country || "us",
-        });
+        };
+        
+        // Add "in" parameter (search in title, description, or content)
+        if (settings.searchIn) {
+          urlParams.in = settings.searchIn;
+        }
+        
+        return this.buildUrl(this.baseUrl + this.endpoints.search, urlParams);
       },
 
       // Build top headlines URL
@@ -213,6 +220,164 @@
         return url.toString();
       },
     },
+
+    WORLDNEWSAPI: {
+      id: "worldnewsapi",
+      name: "WorldNewsAPI",
+      baseUrl: "https://api.worldnewsapi.com",
+      website: "https://worldnewsapi.com",
+      
+      // API endpoints
+      endpoints: {
+        search: "/search-news",
+        topHeadlines: "/top-news",
+      },
+
+      // Build search URL
+      buildSearchUrl: function (apiKey, query, settings) {
+        var urlParams = {
+          text: query,
+          language: settings.language || "en",
+          number: 100,
+        };
+        
+        // WorldNewsAPI only supports 'publish-time' or empty for sort
+        // 'publish-time' = sort by date, empty/omitted = sort by relevance (default)
+        if (settings.sortBy && settings.sortBy === "publish-time") {
+          urlParams.sort = "publish-time";
+        }
+        // If sortBy is 'relevance' or anything else, don't add sort parameter (defaults to relevance)
+        
+        // Add text-match-indexes (search in title, content, or both)
+        if (settings.searchIn) {
+          var searchInMap = {
+            'title': 'title',
+            'description': 'content',
+            'content': 'content',
+            'title,description': 'title,content',
+            'title,content': 'title,content'
+          };
+          urlParams["text-match-indexes"] = searchInMap[settings.searchIn] || 'title,content';
+        }
+        
+        // Add source-country if provided
+        if (settings.country) {
+          urlParams["source-country"] = settings.country;
+        }
+        
+        // Add news-sources filter if provided
+        if (settings.domains && settings.domains.trim() !== "") {
+          urlParams["news-sources"] = settings.domains.trim();
+        }
+        
+        // Add categories filter if provided
+        if (settings.categories && settings.categories.trim() !== "") {
+          urlParams.categories = settings.categories.trim();
+        }
+        
+        // Add authors filter if provided
+        if (settings.authors && settings.authors.trim() !== "") {
+          urlParams.authors = settings.authors.trim();
+        }
+        
+        return this.buildUrl(this.baseUrl + this.endpoints.search, urlParams);
+      },
+
+      // Build top headlines URL
+      buildHeadlinesUrl: function (apiKey, params) {
+        var urlParams = {
+          language: params.language || "en",
+        };
+        
+        // source-country is required for top-news endpoint
+        urlParams["source-country"] = params.country || "us";
+        
+        // Add date if needed (defaults to today)
+        if (params.date) {
+          urlParams.date = params.date;
+        }
+        
+        // Add headlines-only parameter if needed
+        if (params.headlinesOnly) {
+          urlParams["headlines-only"] = true;
+        }
+        
+        return this.buildUrl(this.baseUrl + this.endpoints.topHeadlines, urlParams);
+      },
+
+      // Build validation URL
+      buildValidationUrl: function (apiKey) {
+        return this.buildUrl(this.baseUrl + this.endpoints.search, {
+          text: "technology",
+          language: "en",
+          number: 1,
+        });
+      },
+
+      // Parse API response
+      parseResponse: function (data) {
+        // Handle search-news response
+        if (data.news && Array.isArray(data.news)) {
+          return {
+            success: true,
+            articles: data.news.map(function (article) {
+              return {
+                title: article.title,
+                description: article.summary || article.text,
+                content: article.text,
+                url: article.url,
+                publishedAt: article.publish_date,
+                source: {
+                  name: article.source_country || "Unknown",
+                },
+              };
+            }),
+          };
+        }
+        
+        // Handle top-news response (clustered news)
+        if (data.top_news && Array.isArray(data.top_news)) {
+          var allArticles = [];
+          data.top_news.forEach(function (cluster) {
+            if (cluster.news && Array.isArray(cluster.news)) {
+              cluster.news.forEach(function (article) {
+                allArticles.push({
+                  title: article.title,
+                  description: article.summary || article.text,
+                  content: article.text,
+                  url: article.url,
+                  publishedAt: article.publish_date,
+                  source: {
+                    name: article.source_country || data.country || "Unknown",
+                  },
+                });
+              });
+            }
+          });
+          return {
+            success: true,
+            articles: allArticles,
+          };
+        }
+        
+        return {
+          success: false,
+          error: data.message || "No articles found",
+          articles: [],
+        };
+      },
+
+      // Helper to build URL with params
+      buildUrl: function (base, params) {
+        var url = new URL(base);
+        Object.keys(params).forEach(function (key) {
+          if (params[key] !== null && params[key] !== undefined && params[key] !== "") {
+            url.searchParams.append(key, params[key]);
+          }
+        });
+        return url.toString();
+      },
+    },
   };
 
   /**
@@ -225,7 +390,7 @@
      * Get all available providers
      */
     getProviders: function () {
-      return [Providers.GNEWS, Providers.THENEWSAPI];
+      return [Providers.GNEWS, Providers.THENEWSAPI, Providers.WORLDNEWSAPI];
     },
 
     /**
