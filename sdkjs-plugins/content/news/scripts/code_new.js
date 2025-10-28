@@ -15,19 +15,15 @@
    */
   window.Asc.plugin.init = function () {
     try {
-      console.log("News plugin initialized");
-
       // Load saved provider
       savedProvider = window.GNewsStorage.loadProvider();
       window.GNewsAPI.setProvider(savedProvider);
       window.NewsProviders.setProvider(savedProvider);
-      console.log("Loaded provider:", savedProvider);
 
       // Load saved API key
       savedApiKey = window.GNewsStorage.loadApiKey();
       if (savedApiKey) {
         window.GNewsAPI.setApiKey(savedApiKey);
-        console.log("Loaded API key from storage");
       }
 
       // Initialize UI after a short delay
@@ -78,7 +74,6 @@
     }
 
     head.appendChild(link);
-    console.log("Applied theme:", theme.type);
   };
 
   /**
@@ -215,8 +210,6 @@
     window.GNewsUI.currentProvider = newProvider;
     window.GNewsUI.updateProviderInfo();
     
-    console.log("Provider changed to:", newProvider);
-    
     // Clear API key since different providers need different keys
     if (savedApiKey) {
       window.GNewsUI.showStatus(
@@ -331,16 +324,12 @@
    * Insert single article (open in browser)
    */
   window.insertSingleArticle = function (index) {
-    console.log("insertSingleArticle called with index:", index);
-    console.log("currentArticles length:", window.GNewsUI.currentArticles.length);
-
     if (index < 0 || index >= window.GNewsUI.currentArticles.length) {
       window.GNewsUI.showStatus("Invalid article index", true);
       return;
     }
 
     const article = window.GNewsUI.currentArticles[index];
-    console.log("Opening article:", article.title);
     window.GNewsUI.openArticleLink(article);
   };
 
@@ -362,7 +351,6 @@
    * Update article display when checkboxes change
    */
   window.updateArticleDisplay = function () {
-    console.log("updateArticleDisplay called");
     if (window.GNewsUI.currentArticles.length > 0) {
       window.GNewsUI.displaySearchResults(window.GNewsUI.currentArticles, false);
     }

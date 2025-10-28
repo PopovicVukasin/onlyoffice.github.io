@@ -653,8 +653,6 @@
      * Open article link in browser
      */
     openArticleLink: function (article) {
-      console.log("openArticleLink called for:", article.title);
-
       if (!article.url) {
         this.showStatus("Article URL not available", true);
         return;
@@ -662,7 +660,6 @@
 
       try {
         window.open(article.url, "_blank");
-        console.log("Opened article in new tab:", article.url);
       } catch (error) {
         console.error("Failed to open article:", error);
         this.showStatus("Failed to open article", true);
