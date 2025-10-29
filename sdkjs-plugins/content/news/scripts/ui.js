@@ -543,6 +543,12 @@
       if (!resultsList) return;
 
       if (articles.length === 0) {
+        // Clear the results header when no articles found
+        const resultsHeader = document.querySelector(".results-header");
+        if (resultsHeader) {
+          resultsHeader.textContent = "";
+        }
+        
         resultsList.innerHTML =
           '<div class="no-results">' +
           (window.Asc.plugin.tr
