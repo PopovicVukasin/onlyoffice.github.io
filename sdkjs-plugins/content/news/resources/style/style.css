@@ -1,4 +1,15 @@
 :root {
+  /* Common variables */
+  --space: 8px;
+  --space-lg: 16px;
+
+  --font-family: Arial, sans-serif;
+  --font-size: 12px;
+  --font-size-sm: 10px;
+}
+
+/* Light Theme (Default) */
+body, body[data-theme="light"] {
   --color-primary: #333;
   --color-text: #333;
   --color-text-muted: #666;
@@ -16,13 +27,27 @@
   --color-error-bg: #f8d7da;
   --color-error-text: #721c24;
   --color-error-border: #f5c6cb;
+}
 
-  --space: 8px;
-  --space-lg: 16px;
+/* Dark Theme */
+body[data-theme="dark"] {
+  --color-primary: #ccc;
+  --color-text: #e0e0e0;
+  --color-text-muted: #999;
+  --color-border: #444;
+  --color-bg-hover: #2a2a2a;
 
-  --font-family: Arial, sans-serif;
-  --font-size: 12px;
-  --font-size-sm: 10px;
+  --color-bg: #1a1a1a;
+  --color-bg-element: #2d2d2d;
+  --color-bg-subtle: #2d2d2d;
+
+  --color-success-bg: #1e4d2b;
+  --color-success-text: #90ee90;
+  --color-success-border: #2d5a34;
+
+  --color-error-bg: #4d1e1e;
+  --color-error-text: #ff9999;
+  --color-error-border: #5a2d2d;
 }
 
 * {
@@ -36,6 +61,7 @@ body {
   color: var(--color-text);
   background-color: var(--color-bg);
   height: 100vh;
+  transition: background-color 0.2s, color 0.2s;
 }
 
 input,
