@@ -60,7 +60,7 @@
     // Set the data-theme attribute on the body
     document.body.setAttribute("data-theme", theme.type);
     console.log("Applied theme:", theme.type);
-
+  };
 
   /**
    * Handle translation changes
