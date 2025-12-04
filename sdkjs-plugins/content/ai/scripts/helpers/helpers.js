@@ -35,234 +35,55 @@ var HELPERS = {};
 HELPERS.word = [];
 HELPERS.word.push((function(){
 	let func = new RegisteredFunction({
-		"name": "addImage",
-		"description": "Generate an image from text and insert it at the current cursor position. Width and height are in millimeters.",
+		"name": "changeParagraphStyle",
+		"description": "Changes the style of a specified paragraph in the document. If no paragraph number is provided, affects the current paragraph.",
 		"parameters": {
 			"type": "object",
 			"properties": {
-				"description": {
-					"type": "string",
-					"description": "Text description of the image to generate."
-				},
-				"width": {
+				"parNumber": {
 					"type": "number",
-					"description": "Image width in millimeters.",
-					"default": 100
-				},
-				"height": {
-					"type": "number",
-					"description": "Image height in millimeters.",
-					"default": 100
+					"description": "The paragraph number to apply style changes to. If not provided, the current paragraph will be used."
 				},
 				"style": {
 					"type": "string",
-					"description": "Image style (realistic, cartoon, abstract, etc.).",
-					"default": "realistic"
+					"description": "The style name to apply to the paragraph (e.g., 'Heading 1', 'Normal', etc.)."
 				}
 			},
-			"required": ["description"]
+			"required": ["style"]
 		},
 		"examples": [
 			{
-				"prompt": "Add an image of a sunset",
-				"arguments": { "description": "sunset over mountains" }
+				"prompt": "Change paragraph 3 to Heading 1 style",
+				"arguments": { "parNumber": 3, "style": "Heading 1" }
 			},
 			{
-				"prompt": "Create a cartoon-style team image",
-				"arguments": { "description": "team of office workers", "style": "cartoon", "width": 180, "height": 120 }
+				"prompt": "Apply Normal style to paragraph 2",
+				"arguments": { "parNumber": 2, "style": "Normal" }
 			},
 			{
-				"prompt": "Add a realistic photo of a laptop",
-				"arguments": { "description": "realistic photo of a laptop on a wooden desk", "style": "realistic", "width": 120, "height": 80 }
+				"prompt": "Make paragraph 5 a heading",
+				"arguments": { "parNumber": 5, "style": "Heading 2" }
 			},
 			{
-				"prompt": "Generate an abstract background",
-				"arguments": { "description": "abstract geometric background with vibrant colors", "style": "abstract" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		
-		let requestEngine = null;
-		requestEngine = AI.Request.create(AI.ActionType.ImageGeneration);
-		if (!requestEngine) {
-			return;
-		}
-		
-		let widthMm = params.width || 100;
-		let heightMm = params.height || 100;
-
-		let widthPx = (widthMm / 25.4) * 96 + 0.5 >> 0;
-		let heightPx = (heightMm / 25.4) * 96 + 0.5 >> 0;
-
-		let fullPrompt = params.description;
-		let imageStyle = params.style ? params.style : "realistic";
-		let sizeFormat = "";
-		let aspectRatio = widthPx / heightPx;
-		if (aspectRatio > 1.8) {
-			sizeFormat += ", wide panoramic format";
-		}
-		else if (aspectRatio < 0.6) {
-			sizeFormat += ", tall vertical format";
-		}
-		else if (aspectRatio > 0.9 && aspectRatio < 1.1) {
-			sizeFormat += ", square format";
-		}
-		
-		fullPrompt = imageStyle + " style, " + fullPrompt + ", image size " + widthPx + "x" + heightPx + " pixels" + sizeFormat;
-		
-		try {
-			let actionName = "AI (" + requestEngine.modelUI.name + ")";
-			await Asc.Editor.callMethod("StartAction", ["Block", actionName]);
-			let imageUrl;
-			imageUrl = await requestEngine.imageGenerationRequest(fullPrompt);
-			
-			
-			await Asc.Editor.callMethod("EndAction", ["Block", actionName]);
-			if (imageUrl) {
-				
-				const img = new Image();
-				img.src = imageUrl;
-				await img.decode();
-
-				const widthEmu = img.naturalWidth * 9525 + 0.5 >> 0;
-				const heightEmu = img.naturalHeight * 9525 + 0.5 >> 0;
-				
-				
-				Asc.scope.imageUrl = imageUrl;
-				Asc.scope.width = widthEmu;
-				Asc.scope.height = heightEmu;
-				
-				await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-				await Asc.Editor.callCommand(function () {
-					let doc = Api.GetDocument();
-					doc.ReplaceCurrentImage(Asc.scope.imageUrl, Asc.scope.width, Asc.scope.height);
-				});
-				await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-			}
-		} catch (error) {
-		}
-
-	};
-
-	return func;
-})());
-HELPERS.word.push((function(){
-	let func = new RegisteredFunction({
-		"name": "checkSpelling",
-		"description": "Checks spelling and fixes text errors in the current paragraph.",
-		"parameters": {
-			"type": "object",
-			"properties": {},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Check spelling in this paragraph",
-				"arguments": {}
-			},
-			{
-				"prompt": "Fix grammar in current paragraph",
-				"arguments": {}
-			},
-			{
-				"prompt": "Check for text errors",
-				"arguments": {}
+				"prompt": "Change current paragraph to heading style",
+				"arguments": { "style": "Heading 1" }
 			}
 		]
 	});
 	
 	func.call = async function(params) {
-
-		let text = await Asc.Editor.callCommand(function(){
-			let par = Api.GetDocument().GetCurrentParagraph();
+		Asc.scope.parNumber = params.parNumber;
+		Asc.scope.styleName = params.style;
+		await Asc.Editor.callCommand(function(){
+			let doc = Api.GetDocument();
+			let par = undefined === Asc.scope.parNumber ? doc.GetCurrentParagraph() : doc.GetElement(Asc.scope.parNumber - 1);
 			if (!par)
-				return "";
-			par.Select();
-			return par.GetText();
-		});
-
-		let argPromt = "Check spelling and grammar for text:" + ":\n" + text + "\n Answer with only the new corrected text, no need of any explanations.";
-
-		let isTrackChanges = await Asc.Editor.callCommand(function(){
-			let isOn = Api.GetDocument().IsTrackRevisions();
-			if (isOn)
-				Api.GetDocument().SetTrackRevisions(false);
-			return isOn;
-		});
-
-		let requestEngine = AI.Request.create(AI.ActionType.Chat);
-		if (!requestEngine)
-			return;
-
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-
-		let isSendedEndLongAction = false;
-		async function checkEndAction() {
-			if (!isSendedEndLongAction) {
-				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-				isSendedEndLongAction = true
-			}
-		}
-
-		let resultText = "";
-
-		let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
-			if (!data)
 				return;
-			await checkEndAction();
-
-			resultText += data;
-
-			await Asc.Editor.callMethod("EndAction", ["GroupActions", "", "cancel"]);
-			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-			Asc.scope.text = resultText;
-			await Asc.Editor.callCommand(function(){
-				let par = Api.GetDocument().GetCurrentParagraph();
-				if (!par)
-					return "";
-				par.Select();					
-				Api.ReplaceTextSmart([Asc.scope.text]);
-			});
+			let style = doc.GetStyle(Asc.scope.styleName);
+			par.SetStyle(style);
 		});
-
-		await checkEndAction();
-
-		await Asc.Editor.callMethod("EndAction", ["GroupActions", "", "cancel"]);
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		Asc.scope.modelName = requestEngine.modelUI.name;
-		await Asc.Editor.callCommand(function(){
-			return Api.GetDocument().SetAssistantTrackRevisions(true, Asc.scope.modelName);
-		});
-
-		Asc.scope.text = resultText;
-		await Asc.Editor.callCommand(function(){
-			let par = Api.GetDocument().GetCurrentParagraph();
-			if (!par)
-				return "";
-			par.Select();
-			Api.ReplaceTextSmart([Asc.scope.text]);
-		});
-
-		await Asc.Editor.callCommand(function(){
-			return Api.GetDocument().SetAssistantTrackRevisions(false);
-		});
-
-		if (isTrackChanges)
-		{
-			await Asc.Editor.callCommand(function(){
-				Api.GetDocument().SetTrackRevisions(true);
-			});
-		}
-
-		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
 	};
-	
+
 	return func;
 })());
 HELPERS.word.push((function(){
@@ -403,6 +224,121 @@ HELPERS.word.push((function(){
 })());
 HELPERS.word.push((function(){
 	let func = new RegisteredFunction({
+		"name": "addImage",
+		"description": "Generate an image from text and insert it at the current cursor position. Width and height are in millimeters.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"description": {
+					"type": "string",
+					"description": "Text description of the image to generate."
+				},
+				"width": {
+					"type": "number",
+					"description": "Image width in millimeters.",
+					"default": 100
+				},
+				"height": {
+					"type": "number",
+					"description": "Image height in millimeters.",
+					"default": 100
+				},
+				"style": {
+					"type": "string",
+					"description": "Image style (realistic, cartoon, abstract, etc.).",
+					"default": "realistic"
+				}
+			},
+			"required": ["description"]
+		},
+		"examples": [
+			{
+				"prompt": "Add an image of a sunset",
+				"arguments": { "description": "sunset over mountains" }
+			},
+			{
+				"prompt": "Create a cartoon-style team image",
+				"arguments": { "description": "team of office workers", "style": "cartoon", "width": 180, "height": 120 }
+			},
+			{
+				"prompt": "Add a realistic photo of a laptop",
+				"arguments": { "description": "realistic photo of a laptop on a wooden desk", "style": "realistic", "width": 120, "height": 80 }
+			},
+			{
+				"prompt": "Generate an abstract background",
+				"arguments": { "description": "abstract geometric background with vibrant colors", "style": "abstract" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		
+		let requestEngine = null;
+		requestEngine = AI.Request.create(AI.ActionType.ImageGeneration);
+		if (!requestEngine) {
+			return;
+		}
+		
+		let widthMm = params.width || 100;
+		let heightMm = params.height || 100;
+
+		let widthPx = (widthMm / 25.4) * 96 + 0.5 >> 0;
+		let heightPx = (heightMm / 25.4) * 96 + 0.5 >> 0;
+
+		let fullPrompt = params.description;
+		let imageStyle = params.style ? params.style : "realistic";
+		let sizeFormat = "";
+		let aspectRatio = widthPx / heightPx;
+		if (aspectRatio > 1.8) {
+			sizeFormat += ", wide panoramic format";
+		}
+		else if (aspectRatio < 0.6) {
+			sizeFormat += ", tall vertical format";
+		}
+		else if (aspectRatio > 0.9 && aspectRatio < 1.1) {
+			sizeFormat += ", square format";
+		}
+		
+		fullPrompt = imageStyle + " style, " + fullPrompt + ", image size " + widthPx + "x" + heightPx + " pixels" + sizeFormat;
+		
+		try {
+			let actionName = "AI (" + requestEngine.modelUI.name + ")";
+			await Asc.Editor.callMethod("StartAction", ["Block", actionName]);
+			let imageUrl;
+			imageUrl = await requestEngine.imageGenerationRequest(fullPrompt);
+			
+			
+			await Asc.Editor.callMethod("EndAction", ["Block", actionName]);
+			if (imageUrl) {
+				
+				const img = new Image();
+				img.src = imageUrl;
+				await img.decode();
+
+				const widthEmu = img.naturalWidth * 9525 + 0.5 >> 0;
+				const heightEmu = img.naturalHeight * 9525 + 0.5 >> 0;
+				
+				
+				Asc.scope.imageUrl = imageUrl;
+				Asc.scope.width = widthEmu;
+				Asc.scope.height = heightEmu;
+				
+				await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+				await Asc.Editor.callCommand(function () {
+					let doc = Api.GetDocument();
+					doc.ReplaceCurrentImage(Asc.scope.imageUrl, Asc.scope.width, Asc.scope.height);
+				});
+				await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+			}
+		} catch (error) {
+		}
+
+	};
+
+	return func;
+})());
+HELPERS.word.push((function(){
+	let func = new RegisteredFunction({
 		"name": "insertPage",
 		"description": "Inserts a blank page at the specified location in the document.",
 		"parameters": {
@@ -460,58 +396,180 @@ HELPERS.word.push((function(){
 	
 	return func;
 })());
-HELPERS.word.push((function(){
-	let func = new RegisteredFunction({
-		"name": "changeParagraphStyle",
-		"description": "Changes the style of a specified paragraph in the document. If no paragraph number is provided, affects the current paragraph.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"parNumber": {
-					"type": "number",
-					"description": "The paragraph number to apply style changes to. If not provided, the current paragraph will be used."
-				},
-				"style": {
-					"type": "string",
-					"description": "The style name to apply to the paragraph (e.g., 'Heading 1', 'Normal', etc.)."
-				}
-			},
-			"required": ["style"]
-		},
-		"examples": [
-			{
-				"prompt": "Change paragraph 3 to Heading 1 style",
-				"arguments": { "parNumber": 3, "style": "Heading 1" }
-			},
-			{
-				"prompt": "Apply Normal style to paragraph 2",
-				"arguments": { "parNumber": 2, "style": "Normal" }
-			},
-			{
-				"prompt": "Make paragraph 5 a heading",
-				"arguments": { "parNumber": 5, "style": "Heading 2" }
-			},
-			{
-				"prompt": "Change current paragraph to heading style",
-				"arguments": { "style": "Heading 1" }
-			}
-		]
-	});
-	
-	func.call = async function(params) {
-		Asc.scope.parNumber = params.parNumber;
-		Asc.scope.styleName = params.style;
-		await Asc.Editor.callCommand(function(){
-			let doc = Api.GetDocument();
-			let par = undefined === Asc.scope.parNumber ? doc.GetCurrentParagraph() : doc.GetElement(Asc.scope.parNumber - 1);
-			if (!par)
-				return;
-			let style = doc.GetStyle(Asc.scope.styleName);
-			par.SetStyle(style);
-		});
-	};
+HELPERS.word.push((function () {
+  let func = new RegisteredFunction({
+    name: "describeImage",
+    description:
+      "Allows users to select an image and generate a meaningful title, description, caption, or alt text for it using AI.",
+    // Define parameters so the AI knows what to ask for
+    parameters: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description:
+            "instruction for the AI (e.g., 'Add a short title for this chart.')",
+        },
+      },
+      required: ["prompt"],
+    },
+    // Provide examples to train the AI on usage
+    examples: [
+      {
+        prompt: "Add a short title for this chart.",
+        arguments: { prompt: "Add a short title for this chart." },
+      },
+      {
+        prompt: "Write me a 1–2 sentence description of this photo.",
+        arguments: {
+          prompt: "Write me a 1–2 sentence description of this photo.",
+        },
+      },
+      {
+        prompt: "Generate a descriptive caption for this organizational chart.",
+        arguments: {
+          prompt:
+            "Generate a descriptive caption for this organizational chart.",
+        },
+      },
+      {
+        prompt: "Provide accessibility-friendly alt text for this infographic.",
+        arguments: {
+          prompt:
+            "Provide accessibility-friendly alt text for this infographic.",
+        },
+      },
+    ],
+  });
 
-	return func;
+   // The actual logic executed inside the editor
+  func.call = async function (params) {
+    let prompt = params.prompt;
+
+    async function insertMessage(message) {
+      Asc.scope._message = String(message || "");
+      // 3. Insert the result into the document
+      await Asc.Editor.callCommand(function () {
+        const msg = Asc.scope._message || "";
+        const doc = Api.GetDocument();
+        const selected =
+          (doc.GetSelectedDrawings && doc.GetSelectedDrawings()) || [];
+        if (selected.length > 0) {
+          for (let i = 0; i < selected.length; i++) {
+            const drawing = selected[i];
+            const para = Api.CreateParagraph();
+            para.AddText(msg);
+            drawing.InsertParagraph(para, "after", true);
+          }
+        } else {
+          const para = Api.CreateParagraph();
+          para.AddText(msg);
+          let range = doc.GetCurrentParagraph();
+          range.InsertParagraph(para, "after", true);
+        }
+        Asc.scope._message = "";
+      }, true);
+    }
+
+    try {
+    // 1. Get the selected image
+      let imageData = await new Promise((resolve) => {
+        window.Asc.plugin.executeMethod(
+          "GetImageDataFromSelection",
+          [],
+          function (result) {
+            resolve(result);
+          }
+        );
+      });
+
+      if (!imageData || !imageData.src) {
+        await insertMessage("Please select a valid image first.");
+        return;
+      }
+
+      const whiteRectangleBase64 =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+      if (imageData.src === whiteRectangleBase64) {
+        await insertMessage("Please select a valid image first.");
+        return;
+      }
+
+      let argPrompt = prompt + " (for the selected image)";
+      // 2. Send image + prompt to the AI engine
+      let requestEngine = AI.Request.create(AI.ActionType.Chat);
+      if (!requestEngine) {
+        await insertMessage("AI request engine not available.");
+        return;
+      }
+
+      const allowVision = /(vision|gemini|gpt-4o|gpt-4v|gpt-4-vision)/i;
+      if (!allowVision.test(requestEngine.modelUI.name)) {
+        await insertMessage(
+          "⚠ This model may not support images. Please choose a vision-capable model (e.g. GPT-4V, Gemini, etc.)."
+        );
+        return;
+      }
+
+      await Asc.Editor.callMethod("StartAction", [
+        "Block",
+        "AI (" + requestEngine.modelUI.name + ")",
+      ]);
+      await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+      let messages = [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: argPrompt },
+            {
+              type: "image_url",
+              image_url: { url: imageData.src, detail: "high" },
+            },
+          ],
+        },
+      ];
+
+      let resultText = "";
+      await requestEngine.chatRequest(messages, false, async function (data) {
+        if (data) {
+          resultText += data;
+        }
+      });
+
+      await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+      await Asc.Editor.callMethod("EndAction", [
+        "Block",
+        "AI (" + requestEngine.modelUI.name + ")",
+      ]);
+
+      Asc.scope.text = resultText || "";
+
+      if (!Asc.scope.text.trim()) {
+        await insertMessage(
+          "⚠ AI request failed (maybe the model cannot handle images)."
+        );
+        return;
+      }
+      await insertMessage(Asc.scope.text);
+    } catch (e) {
+      try {
+        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+        await Asc.Editor.callMethod("EndAction", [
+          "Block",
+          "AI (describeImage)",
+        ]);
+      } catch (ee) {
+        /* ignore */
+      }
+      console.error("describeImage error:", e);
+      await insertMessage(
+        "An unexpected error occurred while describing the image."
+      );
+    }
+  };
+
+  return func;
 })());
 HELPERS.word.push((function(){
 	let func = new RegisteredFunction({
@@ -655,6 +713,123 @@ HELPERS.word.push((function(){
 })());
 HELPERS.word.push((function(){
 	let func = new RegisteredFunction({
+		"name": "checkSpelling",
+		"description": "Checks spelling and fixes text errors in the current paragraph.",
+		"parameters": {
+			"type": "object",
+			"properties": {},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Check spelling in this paragraph",
+				"arguments": {}
+			},
+			{
+				"prompt": "Fix grammar in current paragraph",
+				"arguments": {}
+			},
+			{
+				"prompt": "Check for text errors",
+				"arguments": {}
+			}
+		]
+	});
+	
+	func.call = async function(params) {
+
+		let text = await Asc.Editor.callCommand(function(){
+			let par = Api.GetDocument().GetCurrentParagraph();
+			if (!par)
+				return "";
+			par.Select();
+			return par.GetText();
+		});
+
+		let argPromt = "Check spelling and grammar for text:" + ":\n" + text + "\n Answer with only the new corrected text, no need of any explanations.";
+
+		let isTrackChanges = await Asc.Editor.callCommand(function(){
+			let isOn = Api.GetDocument().IsTrackRevisions();
+			if (isOn)
+				Api.GetDocument().SetTrackRevisions(false);
+			return isOn;
+		});
+
+		let requestEngine = AI.Request.create(AI.ActionType.Chat);
+		if (!requestEngine)
+			return;
+
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+
+		let isSendedEndLongAction = false;
+		async function checkEndAction() {
+			if (!isSendedEndLongAction) {
+				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+				isSendedEndLongAction = true
+			}
+		}
+
+		let resultText = "";
+
+		let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
+			if (!data)
+				return;
+			await checkEndAction();
+
+			resultText += data;
+
+			await Asc.Editor.callMethod("EndAction", ["GroupActions", "", "cancel"]);
+			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+			Asc.scope.text = resultText;
+			await Asc.Editor.callCommand(function(){
+				let par = Api.GetDocument().GetCurrentParagraph();
+				if (!par)
+					return "";
+				par.Select();					
+				Api.ReplaceTextSmart([Asc.scope.text]);
+			});
+		});
+
+		await checkEndAction();
+
+		await Asc.Editor.callMethod("EndAction", ["GroupActions", "", "cancel"]);
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		Asc.scope.modelName = requestEngine.modelUI.name;
+		await Asc.Editor.callCommand(function(){
+			return Api.GetDocument().SetAssistantTrackRevisions(true, Asc.scope.modelName);
+		});
+
+		Asc.scope.text = resultText;
+		await Asc.Editor.callCommand(function(){
+			let par = Api.GetDocument().GetCurrentParagraph();
+			if (!par)
+				return "";
+			par.Select();
+			Api.ReplaceTextSmart([Asc.scope.text]);
+		});
+
+		await Asc.Editor.callCommand(function(){
+			return Api.GetDocument().SetAssistantTrackRevisions(false);
+		});
+
+		if (isTrackChanges)
+		{
+			await Asc.Editor.callCommand(function(){
+				Api.GetDocument().SetTrackRevisions(true);
+			});
+		}
+
+		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+	};
+	
+	return func;
+})());
+HELPERS.word.push((function(){
+	let func = new RegisteredFunction({
 		"name": "changeTextStyle",
 		"description": "Changes the style of the selected text, including bold, italic, underline, strikethrough, and font size.",
 		"parameters": {
@@ -758,6 +933,63 @@ HELPERS.word.push((function(){
 
 
 HELPERS.slide = [];
+HELPERS.slide.push((function(){
+	let func = new RegisteredFunction({
+		"name": "addNewSlide",
+		"description": "Adds a new slide at the end of presentation using default layout from current slide's master",
+		"parameters": {
+			"type": "object",
+			"properties": {
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Add new slide",
+				"arguments": {}
+			}
+		]
+	});
+	
+	func.call = async function(params) {
+		Asc.scope.params = params;
+		await Asc.Editor.callCommand(function () {
+				let presentation = Api.GetPresentation();
+				let currentSlide = presentation.GetCurrentSlide();
+				let master;
+				if (currentSlide) {
+					currentSlide = presentation.GetSlideByIndex(0);
+					let curLayout = currentSlide.GetLayout();
+					master = curLayout.GetMaster();
+				}
+				else {
+					master = presentation.GetMasterByIndex(0);
+				}
+				if (!master) {
+					return;
+				}
+
+				let layout = master.GetLayoutByType("obj");
+				if (!layout) {
+					let layoutsCount = master.GetLayoutsCount();
+					if (layoutsCount > 0) {
+						layout = master.GetLayout(0);
+					}
+				}
+
+				if (!layout) return;
+				let newSlide = Api.CreateSlide();
+
+				if (layout) {
+					newSlide.ApplyLayout(layout);
+				}
+
+				presentation.AddSlide(newSlide);
+		});
+	};
+
+	return func;
+})());
 HELPERS.slide.push((function(){
 	let func = new RegisteredFunction({
 		"name": "addChartToSlide",
@@ -961,159 +1193,6 @@ HELPERS.slide.push((function(){
 })());
 HELPERS.slide.push((function(){
 	let func = new RegisteredFunction({
-		"name": "addNewSlide",
-		"description": "Adds a new slide at the end of presentation using default layout from current slide's master",
-		"parameters": {
-			"type": "object",
-			"properties": {
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Add new slide",
-				"arguments": {}
-			}
-		]
-	});
-	
-	func.call = async function(params) {
-		Asc.scope.params = params;
-		await Asc.Editor.callCommand(function () {
-				let presentation = Api.GetPresentation();
-				let currentSlide = presentation.GetCurrentSlide();
-				let master;
-				if (currentSlide) {
-					currentSlide = presentation.GetSlideByIndex(0);
-					let curLayout = currentSlide.GetLayout();
-					master = curLayout.GetMaster();
-				}
-				else {
-					master = presentation.GetMasterByIndex(0);
-				}
-				if (!master) {
-					return;
-				}
-
-				let layout = master.GetLayoutByType("obj");
-				if (!layout) {
-					let layoutsCount = master.GetLayoutsCount();
-					if (layoutsCount > 0) {
-						layout = master.GetLayout(0);
-					}
-				}
-
-				if (!layout) return;
-				let newSlide = Api.CreateSlide();
-
-				if (layout) {
-					newSlide.ApplyLayout(layout);
-				}
-
-				presentation.AddSlide(newSlide);
-		});
-	};
-
-	return func;
-})());
-HELPERS.slide.push((function(){
-	let func = new RegisteredFunction({
-		"name": "addShapeToSlide",
-		"description": "Adds a shape to the slide with optional text (139x42mm, centered, blue fill with dark border)",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"slideNumber": {
-					"type": "number",
-					"description": "Slide number to add shape to",
-					"minimum": 1
-				},
-				"shapeType": {
-					"type": "string",
-					"description": "shape type - rect, roundRect, ellipse, triangle, diamond, pentagon, hexagon, star5, plus, mathMinus, mathMultiply, mathEqual, mathNotEqual, heart, cloud, leftArrow, rightArrow, upArrow, downArrow, leftRightArrow, chevron, bentArrow, curvedRightArrow, blockArc, wedgeRectCallout, cloudCallout, ribbon, wave, can, cube, pie, donut, sun, moon, smileyFace, lightningBolt, noSmoking"
-				},
-				"text": {
-					"type": "string",
-					"description": "text to add to the shape"
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "add a rectangle with text on slide 2",
-				"arguments": { "slideNumber": 2, "shapeType": "rect" }
-			},
-			{
-				"prompt": "add a star shape on current slide",
-				"arguments": { "shapeType": "star5" }
-			},
-			{
-				"prompt": "add a rounded rectangle with text",
-				"arguments": { "text": "Key Message" }
-			},
-			{
-				"prompt": "add a diamond shape with text",
-				"arguments": { "shapeType": "diamond", "text": "Decision Point" }
-			},
-			{
-				"prompt": "add a right arrow with text",
-				"arguments": { "shapeType": "rightArrow", "text": "Next Step" }
-			}
-		]
-	});
-	
-	func.call = async function(params) {
-		Asc.scope.params = params;
-		await Asc.Editor.callCommand(function () {
-				let presentation = Api.GetPresentation();
-				let slide;
-
-				if (Asc.scope.params.slideNumber) {
-					slide = presentation.GetSlideByIndex(Asc.scope.params.slideNumber - 1);
-				}
-				else {
-					slide = presentation.GetCurrentSlide();
-				}
-
-				if (!slide) return;
-
-				let slideWidth = presentation.GetWidth();
-				let slideHeight = presentation.GetHeight();
-
-				let shapeType = Asc.scope.params.shapeType || "rect";
-				let width = 2500000;
-				let height = 2500000;
-				let x = (slideWidth - width) / 2;
-				let y = (slideHeight - height) / 2;
-
-				let fill = Api.CreateSolidFill(Api.CreateSchemeColor("accent1"));
-				let stroke = Api.CreateStroke(12700, Api.CreateSolidFill(Api.CreateRGBColor(51, 51, 51)));
-
-				let shape = Api.CreateShape(shapeType, width, height, fill, stroke);
-				shape.SetPosition(x, y);
-
-				if (Asc.scope.params.text) {
-					let docContent = shape.GetDocContent();
-					if (docContent) {
-						let paragraph = docContent.GetElement(0);
-						if (!paragraph) {
-							paragraph = Api.CreateParagraph();
-							docContent.Push(paragraph);
-						}
-						paragraph.SetJc("center");
-						paragraph.AddText(Asc.scope.params.text);
-						shape.SetVerticalTextAlign("center");
-					}
-				}
-				slide.AddObject(shape);
-		});
-	};
-
-	return func;
-})());
-HELPERS.slide.push((function(){
-	let func = new RegisteredFunction({
 		"name": "addTableToSlide",
 		"description": "Adds a table to the slide (194x97mm, centered)",
 		"parameters": {
@@ -1225,197 +1304,393 @@ HELPERS.slide.push((function(){
 })());
 HELPERS.slide.push((function(){
 	let func = new RegisteredFunction({
-		"name": "addTextToPlaceholder",
-		"description": "Universal function for adding ANY text content to slides. Use this for ALL text addition requests: recipes, lists, instructions, notes, ideas, or any other text content.",
+		"name": "addShapeToSlide",
+		"description": "Adds a shape to the slide with optional text (139x42mm, centered, blue fill with dark border)",
 		"parameters": {
 			"type": "object",
 			"properties": {
 				"slideNumber": {
 					"type": "number",
-					"description": "the slide number to add text to (optional, default current slide)",
+					"description": "Slide number to add shape to",
 					"minimum": 1
+				},
+				"shapeType": {
+					"type": "string",
+					"description": "shape type - rect, roundRect, ellipse, triangle, diamond, pentagon, hexagon, star5, plus, mathMinus, mathMultiply, mathEqual, mathNotEqual, heart, cloud, leftArrow, rightArrow, upArrow, downArrow, leftRightArrow, chevron, bentArrow, curvedRightArrow, blockArc, wedgeRectCallout, cloudCallout, ribbon, wave, can, cube, pie, donut, sun, moon, smileyFace, lightningBolt, noSmoking"
 				},
 				"text": {
 					"type": "string",
-					"description": "ANY text content to add - recipes, lists, instructions, notes, ideas, descriptions, stories, data, or whatever user asks to add"
-				},
-				"textType": {
-					"type": "string",
-					"description": "type of text - 'body', 'chart', 'clipArt', 'ctrTitle', 'diagram', 'date', 'footer', 'header', 'media', 'object', 'picture', 'sldImage', 'sldNumber', 'subTitle', 'table', 'title' (optional, default 'body')"
-				},
-				"prompt": {
-					"type": "string",
-					"description": "AI instructions for text enhancement or generation (optional)"
+					"description": "text to add to the shape"
 				}
 			},
 			"required": []
 		},
 		"examples": [
 			{
-				"prompt": "add [anything] or write [anything] or create text about [anything]'",
-				"arguments": {"text": "[generated or specified content]", "textType": "body"}
+				"prompt": "add a rectangle with text on slide 2",
+				"arguments": { "slideNumber": 2, "shapeType": "rect" }
 			},
 			{
-				"prompt": "add recipe for coffee or just recipe for coffee",
-				"arguments": {"text": "Coffee Recipe:\\n1. Grind coffee beans\\n2. Heat water to 95°C\\n3. Pour water over coffee\\n4. Wait 4 minutes\\n5. Enjoy", "textType": "body"}
+				"prompt": "add a star shape on current slide",
+				"arguments": { "shapeType": "star5" }
 			},
 			{
-				"prompt": "generate content",
-				"arguments": {"text": "Topic", "textType": "body", "prompt": "generate detailed content about this topic"}
+				"prompt": "add a rounded rectangle with text",
+				"arguments": { "text": "Key Message" }
+			},
+			{
+				"prompt": "add a diamond shape with text",
+				"arguments": { "shapeType": "diamond", "text": "Decision Point" }
+			},
+			{
+				"prompt": "add a right arrow with text",
+				"arguments": { "shapeType": "rightArrow", "text": "Next Step" }
+			}
+		]
+	});
+	
+	func.call = async function(params) {
+		Asc.scope.params = params;
+		await Asc.Editor.callCommand(function () {
+				let presentation = Api.GetPresentation();
+				let slide;
+
+				if (Asc.scope.params.slideNumber) {
+					slide = presentation.GetSlideByIndex(Asc.scope.params.slideNumber - 1);
+				}
+				else {
+					slide = presentation.GetCurrentSlide();
+				}
+
+				if (!slide) return;
+
+				let slideWidth = presentation.GetWidth();
+				let slideHeight = presentation.GetHeight();
+
+				let shapeType = Asc.scope.params.shapeType || "rect";
+				let width = 2500000;
+				let height = 2500000;
+				let x = (slideWidth - width) / 2;
+				let y = (slideHeight - height) / 2;
+
+				let fill = Api.CreateSolidFill(Api.CreateSchemeColor("accent1"));
+				let stroke = Api.CreateStroke(12700, Api.CreateSolidFill(Api.CreateRGBColor(51, 51, 51)));
+
+				let shape = Api.CreateShape(shapeType, width, height, fill, stroke);
+				shape.SetPosition(x, y);
+
+				if (Asc.scope.params.text) {
+					let docContent = shape.GetDocContent();
+					if (docContent) {
+						let paragraph = docContent.GetElement(0);
+						if (!paragraph) {
+							paragraph = Api.CreateParagraph();
+							docContent.Push(paragraph);
+						}
+						paragraph.SetJc("center");
+						paragraph.AddText(Asc.scope.params.text);
+						shape.SetVerticalTextAlign("center");
+					}
+				}
+				slide.AddObject(shape);
+		});
+	};
+
+	return func;
+})());
+HELPERS.slide.push((function(){
+	let func = new RegisteredFunction({
+		"name": "changeSlideBackground",
+		"description": "Changes the color of the slide in the presentation.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"slideNumber": {
+					"type": "number",
+					"description": "Slide number to apply the color",
+					"minimum": 1
+				},
+				"backgroundType": {
+					"type": "string",
+					"description": "type of background - 'solid', 'gradient'"
+				},
+				"color": {
+					"type": "string",
+					"description": "hex color for solid background (e.g., '#FF5733')"
+				},
+				"gradientColors": {
+					"type": "array",
+					"description": "array of hex colors for gradient"
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "set blue background on slide 1",
+				"arguments": { "slideNumber": 1, "backgroundType": "solid", "color": "#0066CC" }
+			},
+			{
+				"prompt": "set gradient background",
+				"arguments": {"backgroundType": "gradient", "gradientColors": ["#FF0000", "#0000FF"] }
+			}
+		]
+	});
+	
+	func.call = async function(params) {
+		Asc.scope.params = params;
+		await Asc.Editor.callCommand(function () {
+				let presentation = Api.GetPresentation();
+				let slide = presentation.GetSlideByIndex(Asc.scope.params.slideNumber - 1);
+				if (!slide) 
+					slide = presentation.GetCurrentSlide();
+				if (!slide) return;
+
+				let fill;
+
+				switch (Asc.scope.params.backgroundType) {
+					case "solid":
+						if (Asc.scope.params.color) {
+							let rgb = parseInt(Asc.scope.params.color.slice(1), 16);
+							let r = (rgb >> 16) & 255;
+							let g = (rgb >> 8) & 255;
+							let b = rgb & 255;
+							fill = Api.CreateSolidFill(Api.CreateRGBColor(r, g, b));
+						}
+						break;
+
+					case "gradient":
+						if (Asc.scope.params.gradientColors && Asc.scope.params.gradientColors.length >= 2) {
+							let stops = [];
+							let step = 100000 / (Asc.scope.params.gradientColors.length - 1);
+
+							for (let i = 0; i < Asc.scope.params.gradientColors.length; i++) {
+								let color = Asc.scope.params.gradientColors[i];
+								let rgb = parseInt(color.slice(1), 16);
+								let r = (rgb >> 16) & 255;
+								let g = (rgb >> 8) & 255;
+								let b = rgb & 255;
+								let stop = Api.CreateGradientStop(Api.CreateRGBColor(r, g, b), i * step);
+								stops.push(stop);
+							}
+
+							fill = Api.CreateLinearGradientFill(stops, 5400000);
+						}
+						break;
+				}
+
+				if (fill) {
+					slide.SetBackground(fill);
+				}
+		});
+	};
+
+	return func;
+})());
+HELPERS.slide.push((function () {
+  let func = new RegisteredFunction({
+    "name": "describeImage",
+    "description": "Allows users to select an image and generate a meaningful title, description, caption, or alt text for it using AI.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "description": "instruction for the AI (e.g., 'Add a short title for this chart.')"
+        }
+      },
+      "required": ["prompt"]
+    },
+    "examples": [
+      {
+        "prompt": "Add a short title for this chart.",
+        "arguments": { "prompt": "Add a short title for this chart." }
+      },
+      {
+        "prompt": "Write me a 1–2 sentence description of this photo.",
+        "arguments": { "prompt": "Write me a 1–2 sentence description of this photo." }
+      },
+      {
+        "prompt": "Generate a descriptive caption for this organizational chart.",
+        "arguments": { "prompt": "Generate a descriptive caption for this organizational chart." }
+      },
+      {
+        "prompt": "Provide accessibility-friendly alt text for this infographic.",
+        "arguments": { "prompt": "Provide accessibility-friendly alt text for this infographic." }
+      }
+    ]
+  });
+
+  func.call = async function (params) {
+    async function insertMessage(message) {
+      Asc.scope._message = String(message || "");
+      await Asc.Editor.callCommand(function () {
+        let presentation = Api.GetPresentation();
+        let slide = presentation.GetCurrentSlide();
+
+        let fill = Api.CreateNoFill();
+        let stroke = Api.CreateStroke(0, Api.CreateNoFill());
+        let shape = Api.CreateShape(
+          "rect",
+          300 * 36000,
+          40 * 36000,
+          fill,
+          stroke
+        );
+        shape.SetPosition(720000, 3600000);
+
+        let docContent = shape.GetDocContent();
+        let p = docContent.GetElement(0);
+
+        let run = Api.CreateRun();
+        run.SetFontSize(22);
+        run.SetColor(0, 0, 0);
+        run.AddText(Asc.scope._message);
+        p.AddElement(run);
+
+        slide.AddObject(shape);
+        Asc.scope._message = "";
+      }, true);
+    }
+
+    try {
+      let imageData = await new Promise((resolve) => {
+        window.Asc.plugin.executeMethod(
+          "GetImageDataFromSelection",
+          [],
+          function (result) {
+            resolve(result);
+          }
+        );
+      });
+      console.log("[describeImage] imageData:", imageData);
+      if (!imageData || !imageData.src) {
+        await insertMessage("Please select a valid image first.");
+        return;
+      }
+
+      const whiteRectangleBase64 =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
+      if (imageData.src === whiteRectangleBase64) {
+        await insertMessage("Please select a valid image first.");
+        return;
+      }
+
+      let argPrompt = params.prompt + " (for the selected image)";
+      let requestEngine = AI.Request.create(AI.ActionType.Chat);
+      if (!requestEngine) {
+        await insertMessage("AI request engine not available.");
+        return;
+      }
+      const allowVision = /(vision|gemini|gpt-4o|gpt-4v|gpt-4-vision)/i;
+      if (!allowVision.test(requestEngine.modelUI.name)) {
+        await insertMessage(
+          "⚠ This model may not support images. Please choose a vision-capable model (e.g. GPT-4V, Gemini, etc.)."
+        );
+        return;
+      }
+      await Asc.Editor.callMethod("StartAction", [
+        "Block",
+        "AI (" + requestEngine.modelUI.name + ")",
+      ]);
+      await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+      let messages = [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: argPrompt },
+            {
+              type: "image_url",
+              image_url: { url: imageData.src, detail: "high" },
+            },
+          ],
+        },
+      ];
+
+      let resultText = "";
+      await requestEngine.chatRequest(messages, false, async function (data) {
+        if (data) {
+          resultText += data;
+        }
+        Asc.scope.text = resultText;
+        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+        await Asc.Editor.callMethod("EndAction", [
+          "Block",
+          "AI (" + requestEngine.modelUI.name + ")",
+        ]);
+      });
+
+      Asc.scope.text = resultText || "";
+
+      if (Asc.scope.text && Asc.scope.text.trim().length > 0) {
+        await insertMessage(Asc.scope.text);
+      }
+    } catch (e) {
+      try {
+        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+        await Asc.Editor.callMethod("EndAction", [
+          "Block",
+          "AI (describeImage)",
+        ]);
+      } catch (ee) {}
+      console.error("[describeImage] error:", e);
+      await insertMessage("An error occurred while describing the image.");
+    }
+  };
+  return func;
+})());
+HELPERS.slide.push((function(){
+	let func = new RegisteredFunction({
+		"name": "duplicateSlide",
+		"description": "Duplicates slide with the specific index or current",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"slideNumber": {
+					"type": "number",
+					"description": "the slide number to duplicate",
+					"minimum": 1
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "duplicate slide 3",
+				"arguments": {"slideNumber": 3}
+			},
+			
+			{
+				"prompt": "duplicate slide",
+				"arguments": {}
 			}
 		]
 	});
 	
 	func.call = async function (params) {
 		Asc.scope.slideNum = params.slideNumber;
-		Asc.scope.text = params.text;
-		Asc.scope.textType = params.textType || "body";
-		Asc.scope.prompt = params.prompt;
-
-		await Asc.Editor.callCommand(function () {
+		let data = await Asc.Editor.callCommand(function () {
 			let presentation = Api.GetPresentation();
 			let slide;
-
-			if (Asc.scope.slideNum) {
+			if (Asc.scope.slideNum !== undefined && Asc.scope.slideNum !== null) {
 				slide = presentation.GetSlideByIndex(Asc.scope.slideNum - 1);
 			}
-			else {
+			if (!slide)
 				slide = presentation.GetCurrentSlide();
-			}
-
-			if (!slide) return;
-
-			const placeholderGroups = {
-				titles: ['title', 'ctrTitle'],
-				subTitles: ['subTitle'],
-				content: ['body', 'object', 'unknown'],
-				media: ['picture', 'chart', 'media', 'clipArt', 'diagram', 'sldImage', 'table'],
-				footer: ['footer', 'date', 'sldNumber', 'header']
-			};
-
-			function findPlaceholderGroup(type) {
-				for (let groupName in placeholderGroups) {
-					if (placeholderGroups[groupName].includes(type)) {
-						return placeholderGroups[groupName];
-					}
-				}
-				return [type];
-			}
-
-			function findShapeByPlaceholderType(slide, placeholderTypes) {
-				let allDrawings = slide.GetAllDrawings();
-
-				for (let type of placeholderTypes) {
-					for (let i = 0; i < allDrawings.length; i++) {
-						let drawing = allDrawings[i];
-
-						let ph = drawing.GetPlaceholder();
-						if (ph) {
-							if (ph.GetType() === type) {
-								return {shape: drawing, foundType: type};
-							}
-						}
-					}
-				}
-
+			if (!slide) {
 				return null;
 			}
-
-			let placeholderGroup = findPlaceholderGroup(Asc.scope.textType);
-
-			let searchResult = findShapeByPlaceholderType(slide, placeholderGroup);
-			let targetShape = searchResult ? searchResult.shape : null;
-			let foundType = searchResult ? searchResult.foundType : null;
-
-			if (!targetShape && !placeholderGroups.content.includes(Asc.scope.textType)) {
-				searchResult = findShapeByPlaceholderType(slide, placeholderGroups.content);
-				targetShape = searchResult ? searchResult.shape : null;
-				foundType = searchResult ? searchResult.foundType : null;
+			let slideIdx = slide.GetSlideIndex();
+			if (slide) {
+				slide.Duplicate(slideIdx + 1);
+				return {"idx": slideIdx + 1};
 			}
-
-			let bNewShape = false;
-			if (!targetShape) {
-				let slideWidth = presentation.GetWidth();
-				let slideHeight = presentation.GetHeight();
-
-				let sizes = {
-					title: {width: 0.8, height: 0.1},
-					ctrTitle: {width: 0.8, height: 0.1},
-					subTitle: {width: 0.8, height: 0.08},
-					body: {width: 0.8, height: 0.6},
-					object: {width: 0.8, height: 0.6},
-					picture: {width: 0.5, height: 0.4},
-					chart: {width: 0.6, height: 0.5},
-					table: {width: 0.8, height: 0.6},
-					media: {width: 0.6, height: 0.5},
-					clipArt: {width: 0.3, height: 0.3},
-					diagram: {width: 0.7, height: 0.5},
-					sldImage: {width: 0.6, height: 0.5},
-					footer: {width: 0.8, height: 0.06},
-					header: {width: 0.8, height: 0.06},
-					date: {width: 0.2, height: 0.04},
-					sldNumber: {width: 0.1, height: 0.04}
-				};
-
-				let size = sizes[Asc.scope.textType] || sizes.body;
-				let shapeWidth = slideWidth * size.width;
-				let shapeHeight = slideHeight * size.height;
-				let x = (slideWidth - shapeWidth) / 2;
-				let y = (slideHeight - shapeHeight) / 2;
-
-				let oFill = Api.CreateNoFill();
-				let oStroke = Api.CreateStroke(0, Api.CreateNoFill());
-				targetShape = Api.CreateShape("rect", shapeWidth, shapeHeight, oFill, oStroke);
-				targetShape.SetPosition(x, y);
-
-				slide.AddObject(targetShape);
-				foundType = Asc.scope.textType;
-				bNewShape = true;
-			}
-
-			let docContent = targetShape.GetDocContent();
-			if (docContent) {
-				let internalContent = docContent.Content || docContent;
-
-				while (internalContent.GetElementsCount() > 1) {
-					internalContent.RemoveElement(1);
-				}
-
-				let lines = Asc.scope.text.split('\n').filter(line => line.trim() !== '');
-
-				if (lines.length === 1) {
-					let paragraph = internalContent.GetElement(0);
-					if (paragraph) {
-						paragraph.RemoveAllElements();
-						paragraph.AddText(lines[0]);
-					}
-				}
-				else {
-					let firstParagraph = internalContent.GetElement(0);
-					if (firstParagraph) {
-						firstParagraph.RemoveAllElements();
-						let run = firstParagraph.AddText(lines[0]);
-						if (bNewShape) {
-							run.SetFill(Api.CreateSolidFill(Api.CreateSchemeColor("tx1")));
-						}
-					}
-
-					for (let i = 1; i < lines.length; i++) {
-						let newParagraph = Api.CreateParagraph();
-						let run = newParagraph.AddText(lines[i]);
-						if (bNewShape) {
-							run.SetFill(Api.CreateSolidFill(Api.CreateSchemeColor("tx1")));
-						}
-						internalContent.Push(newParagraph);
-					}
-				}
-
-				return;
-			}
-
-			return;
+			return null;
 		});
-
+		if (data) {
+			await Asc.Editor.callMethod("GoToSlide", [data["idx"] + 1]);
+		}
 	};
 	return func;
 })());
@@ -1550,204 +1825,6 @@ HELPERS.slide.push((function(){
 		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
 	};
 
-	return func;
-})());
-HELPERS.slide.push((function(){
-	let func = new RegisteredFunction({
-		"name": "changeSlideBackground",
-		"description": "Changes the color of the slide in the presentation.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"slideNumber": {
-					"type": "number",
-					"description": "Slide number to apply the color",
-					"minimum": 1
-				},
-				"backgroundType": {
-					"type": "string",
-					"description": "type of background - 'solid', 'gradient'"
-				},
-				"color": {
-					"type": "string",
-					"description": "hex color for solid background (e.g., '#FF5733')"
-				},
-				"gradientColors": {
-					"type": "array",
-					"description": "array of hex colors for gradient"
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "set blue background on slide 1",
-				"arguments": { "slideNumber": 1, "backgroundType": "solid", "color": "#0066CC" }
-			},
-			{
-				"prompt": "set gradient background",
-				"arguments": {"backgroundType": "gradient", "gradientColors": ["#FF0000", "#0000FF"] }
-			}
-		]
-	});
-	
-	func.call = async function(params) {
-		Asc.scope.params = params;
-		await Asc.Editor.callCommand(function () {
-				let presentation = Api.GetPresentation();
-				let slide = presentation.GetSlideByIndex(Asc.scope.params.slideNumber - 1);
-				if (!slide) 
-					slide = presentation.GetCurrentSlide();
-				if (!slide) return;
-
-				let fill;
-
-				switch (Asc.scope.params.backgroundType) {
-					case "solid":
-						if (Asc.scope.params.color) {
-							let rgb = parseInt(Asc.scope.params.color.slice(1), 16);
-							let r = (rgb >> 16) & 255;
-							let g = (rgb >> 8) & 255;
-							let b = rgb & 255;
-							fill = Api.CreateSolidFill(Api.CreateRGBColor(r, g, b));
-						}
-						break;
-
-					case "gradient":
-						if (Asc.scope.params.gradientColors && Asc.scope.params.gradientColors.length >= 2) {
-							let stops = [];
-							let step = 100000 / (Asc.scope.params.gradientColors.length - 1);
-
-							for (let i = 0; i < Asc.scope.params.gradientColors.length; i++) {
-								let color = Asc.scope.params.gradientColors[i];
-								let rgb = parseInt(color.slice(1), 16);
-								let r = (rgb >> 16) & 255;
-								let g = (rgb >> 8) & 255;
-								let b = rgb & 255;
-								let stop = Api.CreateGradientStop(Api.CreateRGBColor(r, g, b), i * step);
-								stops.push(stop);
-							}
-
-							fill = Api.CreateLinearGradientFill(stops, 5400000);
-						}
-						break;
-				}
-
-				if (fill) {
-					slide.SetBackground(fill);
-				}
-		});
-	};
-
-	return func;
-})());
-HELPERS.slide.push((function(){
-	let func = new RegisteredFunction({
-		"name": "deleteSlide",
-		"description": "Deletes slide with the specific index or current",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"slideNumber": {
-					"type": "number",
-					"description": "the slide number to delete",
-					"minimum": 1
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "delete slide 5",
-				"arguments": {"slideNumber": 5}
-			},
-			
-			{
-				"prompt": "delete slide",
-				"arguments": {}
-			}
-		]
-	});
-	
-	func.call = async function (params) {
-		Asc.scope.slideNum = params.slideNumber;
-
-		let data = await Asc.Editor.callCommand(function () {
-			let presentation = Api.GetPresentation();
-			let slide;
-			if (Asc.scope.slideNum !== undefined && Asc.scope.slideNum !== null) {
-				slide = presentation.GetSlideByIndex(Asc.scope.slideNum - 1);
-			}
-			if (!slide)
-				slide = presentation.GetCurrentSlide();
-			if (!slide) {
-				return null;
-			}
-			let curSlideIdx = presentation.GetCurSlideIndex();
-			let slideIdx = slide.GetSlideIndex();
-			slide.Delete();
-			return {"curSlideIdx": curSlideIdx, "slideIdx": slideIdx};
-		});
-		if (data) {
-			if (data["slideIdx"] <= data["curSlideIdx"]) {
-				await Asc.Editor.callMethod("GoToSlide", [data["curSlideIdx"]]);
-			}
-		}
-	};
-	return func;
-})());
-HELPERS.slide.push((function(){
-	let func = new RegisteredFunction({
-		"name": "duplicateSlide",
-		"description": "Duplicates slide with the specific index or current",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"slideNumber": {
-					"type": "number",
-					"description": "the slide number to duplicate",
-					"minimum": 1
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "duplicate slide 3",
-				"arguments": {"slideNumber": 3}
-			},
-			
-			{
-				"prompt": "duplicate slide",
-				"arguments": {}
-			}
-		]
-	});
-	
-	func.call = async function (params) {
-		Asc.scope.slideNum = params.slideNumber;
-		let data = await Asc.Editor.callCommand(function () {
-			let presentation = Api.GetPresentation();
-			let slide;
-			if (Asc.scope.slideNum !== undefined && Asc.scope.slideNum !== null) {
-				slide = presentation.GetSlideByIndex(Asc.scope.slideNum - 1);
-			}
-			if (!slide)
-				slide = presentation.GetCurrentSlide();
-			if (!slide) {
-				return null;
-			}
-			let slideIdx = slide.GetSlideIndex();
-			if (slide) {
-				slide.Duplicate(slideIdx + 1);
-				return {"idx": slideIdx + 1};
-			}
-			return null;
-		});
-		if (data) {
-			await Asc.Editor.callMethod("GoToSlide", [data["idx"] + 1]);
-		}
-	};
 	return func;
 })());
 HELPERS.slide.push((function(){
@@ -3371,14 +3448,315 @@ ${fontsContract}
 	};
 	return func;
 })());
+HELPERS.slide.push((function(){
+	let func = new RegisteredFunction({
+		"name": "deleteSlide",
+		"description": "Deletes slide with the specific index or current",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"slideNumber": {
+					"type": "number",
+					"description": "the slide number to delete",
+					"minimum": 1
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "delete slide 5",
+				"arguments": {"slideNumber": 5}
+			},
+			
+			{
+				"prompt": "delete slide",
+				"arguments": {}
+			}
+		]
+	});
+	
+	func.call = async function (params) {
+		Asc.scope.slideNum = params.slideNumber;
+
+		let data = await Asc.Editor.callCommand(function () {
+			let presentation = Api.GetPresentation();
+			let slide;
+			if (Asc.scope.slideNum !== undefined && Asc.scope.slideNum !== null) {
+				slide = presentation.GetSlideByIndex(Asc.scope.slideNum - 1);
+			}
+			if (!slide)
+				slide = presentation.GetCurrentSlide();
+			if (!slide) {
+				return null;
+			}
+			let curSlideIdx = presentation.GetCurSlideIndex();
+			let slideIdx = slide.GetSlideIndex();
+			slide.Delete();
+			return {"curSlideIdx": curSlideIdx, "slideIdx": slideIdx};
+		});
+		if (data) {
+			if (data["slideIdx"] <= data["curSlideIdx"]) {
+				await Asc.Editor.callMethod("GoToSlide", [data["curSlideIdx"]]);
+			}
+		}
+	};
+	return func;
+})());
+HELPERS.slide.push((function(){
+	let func = new RegisteredFunction({
+		"name": "addTextToPlaceholder",
+		"description": "Universal function for adding ANY text content to slides. Use this for ALL text addition requests: recipes, lists, instructions, notes, ideas, or any other text content.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"slideNumber": {
+					"type": "number",
+					"description": "the slide number to add text to (optional, default current slide)",
+					"minimum": 1
+				},
+				"text": {
+					"type": "string",
+					"description": "ANY text content to add - recipes, lists, instructions, notes, ideas, descriptions, stories, data, or whatever user asks to add"
+				},
+				"textType": {
+					"type": "string",
+					"description": "type of text - 'body', 'chart', 'clipArt', 'ctrTitle', 'diagram', 'date', 'footer', 'header', 'media', 'object', 'picture', 'sldImage', 'sldNumber', 'subTitle', 'table', 'title' (optional, default 'body')"
+				},
+				"prompt": {
+					"type": "string",
+					"description": "AI instructions for text enhancement or generation (optional)"
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "add [anything] or write [anything] or create text about [anything]'",
+				"arguments": {"text": "[generated or specified content]", "textType": "body"}
+			},
+			{
+				"prompt": "add recipe for coffee or just recipe for coffee",
+				"arguments": {"text": "Coffee Recipe:\\n1. Grind coffee beans\\n2. Heat water to 95°C\\n3. Pour water over coffee\\n4. Wait 4 minutes\\n5. Enjoy", "textType": "body"}
+			},
+			{
+				"prompt": "generate content",
+				"arguments": {"text": "Topic", "textType": "body", "prompt": "generate detailed content about this topic"}
+			}
+		]
+	});
+	
+	func.call = async function (params) {
+		Asc.scope.slideNum = params.slideNumber;
+		Asc.scope.text = params.text;
+		Asc.scope.textType = params.textType || "body";
+		Asc.scope.prompt = params.prompt;
+
+		await Asc.Editor.callCommand(function () {
+			let presentation = Api.GetPresentation();
+			let slide;
+
+			if (Asc.scope.slideNum) {
+				slide = presentation.GetSlideByIndex(Asc.scope.slideNum - 1);
+			}
+			else {
+				slide = presentation.GetCurrentSlide();
+			}
+
+			if (!slide) return;
+
+			const placeholderGroups = {
+				titles: ['title', 'ctrTitle'],
+				subTitles: ['subTitle'],
+				content: ['body', 'object', 'unknown'],
+				media: ['picture', 'chart', 'media', 'clipArt', 'diagram', 'sldImage', 'table'],
+				footer: ['footer', 'date', 'sldNumber', 'header']
+			};
+
+			function findPlaceholderGroup(type) {
+				for (let groupName in placeholderGroups) {
+					if (placeholderGroups[groupName].includes(type)) {
+						return placeholderGroups[groupName];
+					}
+				}
+				return [type];
+			}
+
+			function findShapeByPlaceholderType(slide, placeholderTypes) {
+				let allDrawings = slide.GetAllDrawings();
+
+				for (let type of placeholderTypes) {
+					for (let i = 0; i < allDrawings.length; i++) {
+						let drawing = allDrawings[i];
+
+						let ph = drawing.GetPlaceholder();
+						if (ph) {
+							if (ph.GetType() === type) {
+								return {shape: drawing, foundType: type};
+							}
+						}
+					}
+				}
+
+				return null;
+			}
+
+			let placeholderGroup = findPlaceholderGroup(Asc.scope.textType);
+
+			let searchResult = findShapeByPlaceholderType(slide, placeholderGroup);
+			let targetShape = searchResult ? searchResult.shape : null;
+			let foundType = searchResult ? searchResult.foundType : null;
+
+			if (!targetShape && !placeholderGroups.content.includes(Asc.scope.textType)) {
+				searchResult = findShapeByPlaceholderType(slide, placeholderGroups.content);
+				targetShape = searchResult ? searchResult.shape : null;
+				foundType = searchResult ? searchResult.foundType : null;
+			}
+
+			let bNewShape = false;
+			if (!targetShape) {
+				let slideWidth = presentation.GetWidth();
+				let slideHeight = presentation.GetHeight();
+
+				let sizes = {
+					title: {width: 0.8, height: 0.1},
+					ctrTitle: {width: 0.8, height: 0.1},
+					subTitle: {width: 0.8, height: 0.08},
+					body: {width: 0.8, height: 0.6},
+					object: {width: 0.8, height: 0.6},
+					picture: {width: 0.5, height: 0.4},
+					chart: {width: 0.6, height: 0.5},
+					table: {width: 0.8, height: 0.6},
+					media: {width: 0.6, height: 0.5},
+					clipArt: {width: 0.3, height: 0.3},
+					diagram: {width: 0.7, height: 0.5},
+					sldImage: {width: 0.6, height: 0.5},
+					footer: {width: 0.8, height: 0.06},
+					header: {width: 0.8, height: 0.06},
+					date: {width: 0.2, height: 0.04},
+					sldNumber: {width: 0.1, height: 0.04}
+				};
+
+				let size = sizes[Asc.scope.textType] || sizes.body;
+				let shapeWidth = slideWidth * size.width;
+				let shapeHeight = slideHeight * size.height;
+				let x = (slideWidth - shapeWidth) / 2;
+				let y = (slideHeight - shapeHeight) / 2;
+
+				let oFill = Api.CreateNoFill();
+				let oStroke = Api.CreateStroke(0, Api.CreateNoFill());
+				targetShape = Api.CreateShape("rect", shapeWidth, shapeHeight, oFill, oStroke);
+				targetShape.SetPosition(x, y);
+
+				slide.AddObject(targetShape);
+				foundType = Asc.scope.textType;
+				bNewShape = true;
+			}
+
+			let docContent = targetShape.GetDocContent();
+			if (docContent) {
+				let internalContent = docContent.Content || docContent;
+
+				while (internalContent.GetElementsCount() > 1) {
+					internalContent.RemoveElement(1);
+				}
+
+				let lines = Asc.scope.text.split('\n').filter(line => line.trim() !== '');
+
+				if (lines.length === 1) {
+					let paragraph = internalContent.GetElement(0);
+					if (paragraph) {
+						paragraph.RemoveAllElements();
+						paragraph.AddText(lines[0]);
+					}
+				}
+				else {
+					let firstParagraph = internalContent.GetElement(0);
+					if (firstParagraph) {
+						firstParagraph.RemoveAllElements();
+						let run = firstParagraph.AddText(lines[0]);
+						if (bNewShape) {
+							run.SetFill(Api.CreateSolidFill(Api.CreateSchemeColor("tx1")));
+						}
+					}
+
+					for (let i = 1; i < lines.length; i++) {
+						let newParagraph = Api.CreateParagraph();
+						let run = newParagraph.AddText(lines[i]);
+						if (bNewShape) {
+							run.SetFill(Api.CreateSolidFill(Api.CreateSchemeColor("tx1")));
+						}
+						internalContent.Push(newParagraph);
+					}
+				}
+
+				return;
+			}
+
+			return;
+		});
+
+	};
+	return func;
+})());
 
 
 HELPERS.cell = [];
 HELPERS.cell.push((function(){
 
 	let func = new RegisteredFunction({
-		"name": "addAboveAverage",
-		"description": "Highlights cells that contain values above or below the average of all values in the range. This is useful for identifying data points that deviate significantly from the typical values in your dataset.",
+		"name": "clearConditionalFormatting",
+		"description": "Removes all conditional formatting rules from the specified range or current selection. This function cleans up all existing conditional formatting including color scales, data bars, icon sets, and highlight cell rules, returning cells to their default appearance.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to clear formatting (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Clear all conditional formatting from current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Clear conditional formatting from range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "When user asks to remove, delete, clear conditional formatting",
+				"arguments": { "range": "A1:D10" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+
+		await Asc.Editor.callCommand(function() {
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection;
+			}
+			
+			let formatConditions = range.GetFormatConditions();
+			formatConditions.Delete();
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "addUniqueValues",
+		"description": "Highlights unique values or duplicate values in a range. Use this to identify data that appears only once (unique) or multiple times (duplicates) within the specified range. Perfect for data validation and cleanup tasks.",
 		"parameters": {
 			"type": "object",
 			"properties": {
@@ -3386,19 +3764,15 @@ HELPERS.cell.push((function(){
 					"type": "string",
 					"description": "Cell range to apply condition (e.g., 'A1:D10'). If omitted, uses active/selected range."
 				},
-				"aboveBelow": {
-					"type": "boolean",
-					"description": "True for above average, false for below average (default: true).",
-					"default": true
-				},
-				"numStdDev": {
-					"type": "number",
-					"description": "Number of standard deviations from average (default: 0 for simple average).",
-					"default": 0
+				"duplicateUnique": {
+					"type": "string",
+					"description": "'unique' to highlight unique values, 'duplicate' to highlight duplicates (default: 'duplicate').",
+					"enum": ["unique", "duplicate"],
+					"default": "duplicate"
 				},
 				"fillColor": {
 					"type": "object",
-					"description": "Background color {r: 255, g: 0, b: 0}.",
+					"description": "Background color {r: 255, g: 255, b: 0}.",
 					"properties": {
 						"r": { "type": "number" },
 						"g": { "type": "number" },
@@ -3410,24 +3784,23 @@ HELPERS.cell.push((function(){
 		},
 		"examples": [
 			{
-				"prompt": "Highlight cells above average with default color",
+				"prompt": "Highlight duplicate values with default color",
 				"arguments": {}
 			},
 			{
-				"prompt": "Highlight cells below average with red background",
-				"arguments": { "aboveBelow": false, "fillColor": { "r": 255, "g": 0, "b": 0 } }
+				"prompt": "Highlight unique values with yellow background",
+				"arguments": { "duplicateUnique": "unique", "fillColor": { "r": 255, "g": 255, "b": 0 } }
 			},
 			{
-				"prompt": "When user asks to highlight above/below average values",
-				"arguments": { "aboveBelow": true }
+				"prompt": "When user asks to highlight duplicate or unique values",
+				"arguments": { "duplicateUnique": "unique" }
 			}
 		]
 	});
 
 	func.call = async function(params) {
 		Asc.scope.range = params.range;
-		Asc.scope.aboveBelow = params.aboveBelow !== false; // default true
-		Asc.scope.numStdDev = params.numStdDev || 0;
+		Asc.scope.duplicateUnique = params.duplicateUnique || 'duplicate';
 		Asc.scope.fillColor = params.fillColor;
 
 		await Asc.Editor.callCommand(function() {
@@ -3436,547 +3809,25 @@ HELPERS.cell.push((function(){
 			if (Asc.scope.range) {
 				range = ws.GetRange(Asc.scope.range);
 			} else {
-				range = ws.GetSelection();
+				range = ws.Selection;
 			}
-
-			if (!range) {
-				return;
-			}
-
-			let formatConditions = range.GetFormatConditions();
-			let condition = formatConditions.AddAboveAverage();
 			
+			let formatConditions = range.GetFormatConditions();
+			let condition = formatConditions.AddUniqueValues();
+
 			if (condition) {
-				condition.SetAboveBelow(Asc.scope.aboveBelow);
-				
-				if (Asc.scope.numStdDev !== 0) {
-					condition.SetNumStdDev(Asc.scope.numStdDev);
+				if (Asc.scope.duplicateUnique === 'unique') {
+					condition.SetDupeUnique("xlUnique");
+				} else {
+					condition.SetDupeUnique("xlDuplicate");
 				}
 				
 				if (Asc.scope.fillColor) {
 					let fillColor = Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b);
 					condition.SetFillColor(fillColor);
 				} else {
-					let defaultFillColor = Api.CreateColorFromRGB(255, 165, 0);
+					let defaultFillColor = Api.CreateColorFromRGB(255, 192, 203);
 					condition.SetFillColor(defaultFillColor);
-				}
-			}
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addCellValueCondition",
-		"description": "Creates conditional formatting rules based on cell values using comparison operators (greater than, less than, equal to, between, etc.). This is the most flexible conditional formatting option, allowing you to highlight cells that meet specific criteria with custom colors for background and text.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply condition (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"operator": {
-					"type": "string",
-					"description": "Comparison operator - 'xlGreater', 'xlLess', 'xlEqual', 'xlNotEqual', 'xlGreaterEqual', 'xlLessEqual', 'xlBetween', 'xlNotBetween'.",
-					"enum": ["xlGreater", "xlLess", "xlEqual", "xlNotEqual", "xlGreaterEqual", "xlLessEqual", "xlBetween", "xlNotBetween"]
-				},
-				"value1": {
-					"type": ["string", "number"],
-					"description": "First comparison value or formula."
-				},
-				"value2": {
-					"type": ["string", "number"],
-					"description": "Second comparison value for 'xlBetween' and 'xlNotBetween' operators."
-				},
-				"fillColor": {
-					"type": "object",
-					"description": "Background color {r: 255, g: 0, b: 0}.",
-					"properties": {
-						"r": { "type": "number" },
-						"g": { "type": "number" },
-						"b": { "type": "number" }
-					}
-				},
-				"fontColor": {
-					"type": "object",
-					"description": "Font color {r: 0, g: 0, b: 0}.",
-					"properties": {
-						"r": { "type": "number" },
-						"g": { "type": "number" },
-						"b": { "type": "number" }
-					}
-				}
-			},
-			"required": ["operator", "value1"]
-		},
-		"examples": [
-			{
-				"prompt": "Highlight cells greater than 10 with red background",
-				"arguments": { "operator": "xlGreater", "value1": 10, "fillColor": { "r": 255, "g": 0, "b": 0 } }
-			},
-			{
-				"prompt": "Highlight cells between 5 and 15 with yellow background",
-				"arguments": { "range": "A1:D10", "operator": "xlBetween", "value1": 5, "value2": 15, "fillColor": { "r": 255, "g": 255, "b": 0 } }
-			},
-			{
-				"prompt": "When user asks to highlight cells based on values (greater than, less than, equal to)",
-				"arguments": { "range": "A1:D10", "operator": "xlGreater", "value1": 100 }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.operator = params.operator;
-		Asc.scope.value1 = params.value1;
-		Asc.scope.value2 = params.value2;
-		Asc.scope.fillColor = params.fillColor;
-		Asc.scope.fontColor = params.fontColor;
-
-		await Asc.Editor.callCommand(function() {
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection;
-			}
-			
-			let formatConditions = range.GetFormatConditions();
-			let condition = formatConditions.Add("xlCellValue", Asc.scope.operator, Asc.scope.value1, Asc.scope.value2);
-			
-			if (condition) {
-				if (Asc.scope.fontColor) {
-					let fontColor = Api.CreateColorFromRGB(Asc.scope.fontColor.r, Asc.scope.fontColor.g, Asc.scope.fontColor.b);
-					let font = condition.GetFont();
-					if (font && font.SetColor) {
-						font.SetColor(fontColor);
-					}
-				}
-				
-				if (Asc.scope.fillColor) {
-					let fillColor = Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b);
-					condition.SetFillColor(fillColor);
-				} else {
-					let defaultFillColor = Api.CreateColorFromRGB(255, 255, 0);
-					condition.SetFillColor(defaultFillColor);
-				}
-			}
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addChart",
-		"description": "Creates charts from data ranges to visualize data. Supports multiple chart types including bar charts, line charts, pie charts, scatter plots, and area charts. Each chart type has variants like stacked, 3D, and percentage views. Charts are automatically positioned below the source data range with configurable dimensions. Optional chart titles can be added for better context.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range with data for chart (e.g., 'A1:D10'). If omitted, uses current selection."
-				},
-				"chartType": {
-					"type": "string",
-					"description": "Type of chart to create.",
-					"enum": ["bar", "barStacked", "barStackedPercent", "bar3D", "barStacked3D", "barStackedPercent3D", "barStackedPercent3DPerspective", "horizontalBar", "horizontalBarStacked", "horizontalBarStackedPercent", "horizontalBar3D", "horizontalBarStacked3D", "horizontalBarStackedPercent3D", "lineNormal", "lineStacked", "lineStackedPercent", "line3D", "pie", "pie3D", "doughnut", "scatter", "stock", "area", "areaStacked", "areaStackedPercent"],
-					"default": "bar"
-				},
-				"title": {
-					"type": "string",
-					"description": "Chart title text."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Create a bar chart from current selection",
-				"arguments": {}
-			},
-			{
-				"prompt": "Create a line chart from current selection",
-				"arguments": { "chartType": "lineNormal" }
-			},
-			{
-				"prompt": "Create a pie chart from specific range",
-				"arguments": { "range": "A1:B10", "chartType": "pie" }
-			},
-			{
-				"prompt": "Create a chart with title",
-				"arguments": { "title": "Sales Overview" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.chartType = params.chartType || "bar";
-		Asc.scope.title = params.title;
-
-		await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let chartRange;
-
-			if (Asc.scope.range) {
-				chartRange = Asc.scope.range;
-			} else {
-				let selection = Api.GetSelection();
-				chartRange = selection.GetAddress(true, true, "xlA1", false);
-			}
-
-			let range = ws.GetRange(chartRange);
-			let fromRow = range.GetRow() + 3;
-			let fromCol = range.GetCol();
-
-			let widthEMU = 130 * 36000;
-			let heightEMU = 80 * 36000;
-
-			let chart = ws.AddChart(
-				chartRange,
-				true,
-				Asc.scope.chartType,
-				2,
-				widthEMU,
-				heightEMU,
-				fromCol,
-				0,
-				fromRow,
-				0
-			);
-			if (chart && Asc.scope.title) {
-				chart.SetTitle(Asc.scope.title, 14);
-			}
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addColorScale",
-		"description": "Applies color scale conditional formatting to visualize data with gradient colors. Creates a heat map effect where values are represented by colors ranging from one color (minimum values) to another color (maximum values). Use 2-color scale for simple comparisons or 3-color scale for more detailed data visualization.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply color scale (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"colorScaleType": {
-					"type": "number",
-					"description": "Color scale type - 2 for two-color scale, 3 for three-color scale (default: 3).",
-					"enum": [2, 3],
-					"default": 3
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Apply 3-color scale conditional formatting to current selection",
-				"arguments": {}
-			},
-			{
-				"prompt": "Apply 2-color scale conditional formatting to range A1:D10",
-				"arguments": { "range": "A1:D10", "colorScaleType": 2 }
-			},
-			{
-				"prompt": "When user asks to add color scale, color gradient, heat map formatting",
-				"arguments": { "range": "A1:D10", "colorScaleType": 3 }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.colorScaleType = params.colorScaleType || 3;
-
-		await Asc.Editor.callCommand(function() {
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection;
-			}
-			
-			let formatConditions = range.GetFormatConditions();
-			formatConditions.AddColorScale(Asc.scope.colorScaleType);
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addConditionalFormatting",
-		"description": "Use this function when user asks for conditional formatting without specifying the exact type. This applies the most commonly used conditional formatting rule - highlighting cells based on values greater than a threshold with color background. Perfect for general requests like 'add conditional formatting', 'highlight important data', or 'format cells conditionally'.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply formatting (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"threshold": {
-					"type": "number",
-					"description": "Value threshold for highlighting (default: calculated from data)."
-				},
-				"fillColor": {
-					"type": "object",
-					"description": "Background color {r: 255, g: 200, b: 200} (default: light red).",
-					"properties": {
-						"r": { "type": "number" },
-						"g": { "type": "number" },
-						"b": { "type": "number" }
-					}
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Apply default conditional formatting to current selection",
-				"arguments": {}
-			},
-			{
-				"prompt": "Apply conditional formatting with custom threshold",
-				"arguments": { "threshold": 100 }
-			},
-			{
-				"prompt": "When user asks to add conditional formatting without specifics",
-				"arguments": { "range": "A1:D10" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.threshold = params.threshold;
-		Asc.scope.fillColor = params.fillColor || {r: 255, g: 200, b: 200};
-
-		await Asc.Editor.callCommand(function() {
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection;
-			}
-			
-			let threshold = Asc.scope.threshold;
-			if (!threshold) {
-				let values = range.GetValue2();
-				let numericValues = [];
-				for (let i = 0; i < values.length; i++) {
-					for (let j = 0; j < values[i].length; j++) {
-						let val = parseFloat(values[i][j]);
-						if (!isNaN(val)) {
-							numericValues.push(val);
-						}
-					}
-				}
-				if (numericValues.length > 0) {
-					numericValues.sort((a, b) => a - b);
-					threshold = numericValues[Math.floor(numericValues.length * 0.7)];
-				} else {
-					threshold = 0;
-				}
-			}
-			
-			let formatConditions = range.GetFormatConditions();
-			let condition = formatConditions.Add("xlCellValue", "xlGreater", threshold);
-			
-			if (condition) {
-				let color = Asc.scope.fillColor ? 
-					Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b) :
-					Api.CreateColorFromRGB(255, 200, 200);
-				condition.SetFillColor(color);
-			}
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addDataBars",
-		"description": "Adds data bar conditional formatting to display values as horizontal bars within cells. The length of each bar represents the value relative to other values in the range. Useful for creating in-cell bar charts and comparing values at a glance without additional charts.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply data bars (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"barColor": {
-					"type": "object",
-					"description": "Color of the data bars {r: 0, g: 112, b: 192} (default: blue).",
-					"properties": {
-						"r": { "type": "number" },
-						"g": { "type": "number" },
-						"b": { "type": "number" }
-					}
-				},
-				"showValue": {
-					"type": "boolean",
-					"description": "Whether to show the cell values along with bars (default: true).",
-					"default": true
-				},
-				"direction": {
-					"type": "string",
-					"description": "Direction of bars - 'leftToRight', 'rightToLeft' (default: 'leftToRight').",
-					"enum": ["leftToRight", "rightToLeft"],
-					"default": "leftToRight"
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Apply data bars conditional formatting to current selection",
-				"arguments": {}
-			},
-			{
-				"prompt": "Apply data bars with custom color to range A1:D10",
-				"arguments": { "range": "A1:D10", "barColor": { "r": 255, "g": 0, "b": 0 } }
-			},
-			{
-				"prompt": "When user asks to add data bars, bar chart formatting, progress bars",
-				"arguments": { "range": "A1:D10" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.barColor = params.barColor;
-		Asc.scope.showValue = params.showValue;
-		Asc.scope.direction = params.direction;
-
-		await Asc.Editor.callCommand(function() {
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection;
-			}
-			
-			let formatConditions = range.GetFormatConditions();
-			let databar = formatConditions.AddDatabar();
-			
-			if (databar) {
-				if (Asc.scope.barColor) {
-					let barColor = Api.CreateColorFromRGB(Asc.scope.barColor.r, Asc.scope.barColor.g, Asc.scope.barColor.b);
-					databar.SetBarColor(barColor);
-				} else {
-					let defaultBarColor = Api.CreateColorFromRGB(70, 130, 180);
-					databar.SetBarColor(defaultBarColor);
-				}
-				
-				if (typeof Asc.scope.showValue === "boolean") {
-					databar.SetShowValue(Asc.scope.showValue);
-				}
-				
-				if (Asc.scope.direction) {
-					databar.SetDirection(Asc.scope.direction);
-				}
-			}
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "addIconSet",
-		"description": "Applies icon set conditional formatting to display icons (arrows, traffic lights, symbols) based on value ranges. Icons provide visual indicators for data trends and performance levels. Each icon represents a different value range, making it easy to identify patterns and outliers in your data.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply icon set (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"iconSetType": {
-					"type": "string",
-					"description": "Type of icon set - 'threeArrows', 'threeTrafficLights', 'fourArrows', 'fiveArrows', etc. (default: 'threeArrows').",
-					"default": "threeArrows"
-				},
-				"showIconOnly": {
-					"type": "boolean",
-					"description": "Whether to show only icons without cell values (default: false).",
-					"default": false
-				},
-				"reverseOrder": {
-					"type": "boolean",
-					"description": "Whether to reverse the icon order (default: false).",
-					"default": false
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Apply icon set conditional formatting to current selection",
-				"arguments": {}
-			},
-			{
-				"prompt": "Apply traffic lights icon set to range A1:D10",
-				"arguments": { "range": "A1:D10", "iconSetType": "threeTrafficLights" }
-			},
-			{
-				"prompt": "When user asks to add icon set, arrow icons, traffic lights, symbols formatting",
-				"arguments": { "range": "A1:D10" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.iconSetType = params.iconSetType;
-		Asc.scope.showIconOnly = params.showIconOnly;
-		Asc.scope.reverseOrder = params.reverseOrder;
-
-		await Asc.Editor.callCommand(function() {
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.GetSelection();
-			}
-			
-			if (!range) {
-				return;
-			}
-
-			let formatConditions = range.GetFormatConditions();
-			let iconSet = formatConditions.AddIconSetCondition();
-			
-			if (iconSet) {
-				if (Asc.scope.iconSetType) {
-					iconSet.SetIconSet(Asc.scope.iconSetType);
-				}
-				
-				if (typeof Asc.scope.showIconOnly === "boolean") {
-					iconSet.SetShowIconOnly(Asc.scope.showIconOnly);
-				}
-				
-				if (typeof Asc.scope.reverseOrder === "boolean") {
-					iconSet.SetReverseOrder(Asc.scope.reverseOrder);
 				}
 			}
 		});
@@ -4103,6 +3954,517 @@ HELPERS.cell.push((function(){
 HELPERS.cell.push((function(){
 
 	let func = new RegisteredFunction({
+		"name": "addIconSet",
+		"description": "Applies icon set conditional formatting to display icons (arrows, traffic lights, symbols) based on value ranges. Icons provide visual indicators for data trends and performance levels. Each icon represents a different value range, making it easy to identify patterns and outliers in your data.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to apply icon set (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"iconSetType": {
+					"type": "string",
+					"description": "Type of icon set - 'threeArrows', 'threeTrafficLights', 'fourArrows', 'fiveArrows', etc. (default: 'threeArrows').",
+					"default": "threeArrows"
+				},
+				"showIconOnly": {
+					"type": "boolean",
+					"description": "Whether to show only icons without cell values (default: false).",
+					"default": false
+				},
+				"reverseOrder": {
+					"type": "boolean",
+					"description": "Whether to reverse the icon order (default: false).",
+					"default": false
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Apply icon set conditional formatting to current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Apply traffic lights icon set to range A1:D10",
+				"arguments": { "range": "A1:D10", "iconSetType": "threeTrafficLights" }
+			},
+			{
+				"prompt": "When user asks to add icon set, arrow icons, traffic lights, symbols formatting",
+				"arguments": { "range": "A1:D10" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.iconSetType = params.iconSetType;
+		Asc.scope.showIconOnly = params.showIconOnly;
+		Asc.scope.reverseOrder = params.reverseOrder;
+
+		await Asc.Editor.callCommand(function() {
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.GetSelection();
+			}
+			
+			if (!range) {
+				return;
+			}
+
+			let formatConditions = range.GetFormatConditions();
+			let iconSet = formatConditions.AddIconSetCondition();
+			
+			if (iconSet) {
+				if (Asc.scope.iconSetType) {
+					iconSet.SetIconSet(Asc.scope.iconSetType);
+				}
+				
+				if (typeof Asc.scope.showIconOnly === "boolean") {
+					iconSet.SetShowIconOnly(Asc.scope.showIconOnly);
+				}
+				
+				if (typeof Asc.scope.reverseOrder === "boolean") {
+					iconSet.SetReverseOrder(Asc.scope.reverseOrder);
+				}
+			}
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "highlightAnomalies",
+		"description": "Detects and highlights statistical outliers (anomalies) in numeric data using the IQR (Interquartile Range) method or Z-score analysis. Applies conservative outlier detection to avoid false positives - only marks clear statistical anomalies. Automatically extracts numeric values from the range, calculates quartiles, and identifies values that fall outside Q1-1.5*IQR or Q3+1.5*IQR. Highlights detected anomalies with customizable colors. Requires at least 4 numeric values for analysis.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to analyze for anomalies (e.g., 'A1:D10'). If omitted, uses current selection or entire used range."
+				},
+				"highlightColor": {
+					"type": "string",
+					"description": "Color to highlight anomalies (hex color like '#FF0000' or preset color name like 'red'). Default: 'yellow'.",
+					"default": "yellow"
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Highlight anomalies in current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Highlight anomalies in specific range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "Highlight anomalies in red color",
+				"arguments": { "highlightColor": "red" }
+			},
+			{
+				"prompt": "Highlight anomalies in specific range with custom color",
+				"arguments": { "range": "A1:D10", "highlightColor": "#FF5733" }
+			},
+			{
+				"prompt": "Analyze selected range for statistical outliers and highlight them",
+				"arguments": {}
+			},
+			{
+				"prompt": "Find and highlight anomalous values in data with blue color",
+				"arguments": { "highlightColor": "blue" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.highlightColor = params.highlightColor || "yellow";
+
+		let rangeData = await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let _range;
+
+			if (!Asc.scope.range) {
+				_range = Api.GetSelection();
+			} else {
+				_range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!_range)
+				return null;
+
+			let values = _range.GetValue2();
+			let address = _range.Address;
+			let startRow = _range.Row;
+			let startCol = _range.Col;
+
+			return {
+				values: values,
+				address: address,
+				startRow: startRow,
+				startCol: startCol
+			};
+		});
+
+		if (!rangeData || !rangeData.values) {
+			return;
+		}
+
+		// Extract numeric values with their positions
+		let numericData = [];
+		let values = rangeData.values;
+		
+		// Helper function to check if a value is a valid number
+		function isValidNumber(value) {
+			if (value == null || value === '') {
+				return false;
+			}
+			let numValue = parseFloat(value);
+			return !isNaN(numValue) && isFinite(numValue) ? numValue : false;
+		}
+		
+		if (Array.isArray(values)) {
+			for (let r = 0; r < values.length; r++) {
+				let row = values[r];
+				if (Array.isArray(row)) {
+					for (let c = 0; c < row.length; c++) {
+						let cell = row[c];
+						let numValue = isValidNumber(cell);
+						if (numValue !== false) {
+							numericData.push({row: r, col: c, value: numValue});
+						}
+					}
+				} else {
+					let numValue = isValidNumber(row);
+					if (numValue !== false) {
+						numericData.push({row: r, col: 0, value: numValue});
+					}
+				}
+			}
+		} else {
+			let numValue = isValidNumber(values);
+			if (numValue !== false) {
+				numericData.push({row: 0, col: 0, value: numValue});
+			}
+		}
+
+		if (numericData.length === 0) {
+			return; // No numeric data to analyze
+		}
+
+		let dataValues = numericData.map(function(item) { return item.value; });
+		
+		let argPrompt = [
+			"You are a statistical data analyst.",
+			"Input is numeric array: [" + dataValues.join(',') + "]",
+			"Task: Find statistical outliers (anomalies) in the data.",
+			"Rules:",
+			"1. Use IQR (Interquartile Range) method for outlier detection:",
+			"   a) Calculate Q1 (25th percentile) and Q3 (75th percentile)",
+			"   b) Calculate IQR = Q3 - Q1",
+			"   c) Define outliers as values < Q1 - 1.5*IQR or > Q3 + 1.5*IQR",
+			"2. Alternative method: Z-score analysis where |Z| > 2.5 indicates outlier",
+			"3. Be conservative - only mark clear statistical outliers to avoid false positives",
+			"4. If dataset has less than 4 values, return empty array (insufficient data)",
+			"5. Ignore extreme outliers that are obviously data entry errors vs. statistical anomalies",
+			"6. The answer MUST be a valid JSON array of indices (0-based positions in input array)",
+			"7. Format: [0,2,5] - indices of outlier positions in the input array",
+			"8. If no outliers found, return empty array: []",
+			"9. No extra text, explanations, or formatting - ONLY the JSON array",
+			"10. Example responses:",
+			"    - Input [1,2,3,100]: return [3]",
+			"    - Input [1,2,3,4,5]: return []",
+			"    - Input [10,10,10,50,10]: return [3]",
+			"Data to analyze: [" + dataValues.join(',') + "]"
+		].join('\n');
+
+		let requestEngine = AI.Request.create(AI.ActionType.Chat);
+		if (!requestEngine)
+			return;
+
+		let isSendedEndLongAction = false;
+		async function checkEndAction() {
+			if (!isSendedEndLongAction) {
+				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+				isSendedEndLongAction = true;
+			}
+		}
+
+		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
+			if (!data)
+				return;
+		});
+
+		await checkEndAction();
+
+		if (aiResult) {
+			try {
+				let anomalies = JSON.parse(aiResult.trim());
+				if (Array.isArray(anomalies) && anomalies.length > 0) {
+					Asc.scope.anomalies = [];
+					Asc.scope.numericData = numericData;
+					
+					for (let i = 0; i < anomalies.length; i++) {
+						let dataIndex = anomalies[i];
+						if (typeof dataIndex === 'number' && dataIndex >= 0 && dataIndex < Asc.scope.numericData.length) {
+							Asc.scope.anomalies.push({
+								row: Asc.scope.numericData[dataIndex].row,
+								col: Asc.scope.numericData[dataIndex].col
+							});
+						}
+					}
+					
+					if (Asc.scope.anomalies.length > 0) {
+						Asc.scope.rangeData = rangeData;
+
+						await Asc.Editor.callCommand(function(){
+							let ws = Api.GetActiveSheet();
+							let highlightColor;
+							
+							// Handle different color formats
+							if (Asc.scope.highlightColor.startsWith('#')) {
+								// Hex color
+								let hex = Asc.scope.highlightColor.substring(1);
+								let r = parseInt(hex.substring(0, 2), 16);
+								let g = parseInt(hex.substring(2, 4), 16);
+								let b = parseInt(hex.substring(4, 6), 16);
+								highlightColor = Api.CreateColorFromRGB(r, g, b);
+							} else {
+								// Named color
+								highlightColor = Api.CreateColorByName(Asc.scope.highlightColor);
+							}
+
+							for (let i = 0; i < Asc.scope.anomalies.length; i++) {
+								let anomaly = Asc.scope.anomalies[i];
+								let targetRow = Asc.scope.rangeData.startRow + anomaly.row;
+								let targetCol = Asc.scope.rangeData.startCol + anomaly.col;
+								
+								let cell = ws.GetCells(targetRow, targetCol);
+								if (cell) {
+									cell.SetFillColor(highlightColor);
+								}
+							}
+						});
+					}
+				}
+			} catch (error) {
+				// Handle JSON parsing errors or other issues
+				console.error("Error parsing AI result:", error);
+			}
+		}
+
+		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "addChart",
+		"description": "Creates charts from data ranges to visualize data. Supports multiple chart types including bar charts, line charts, pie charts, scatter plots, and area charts. Each chart type has variants like stacked, 3D, and percentage views. Charts are automatically positioned below the source data range with configurable dimensions. Optional chart titles can be added for better context.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range with data for chart (e.g., 'A1:D10'). If omitted, uses current selection."
+				},
+				"chartType": {
+					"type": "string",
+					"description": "Type of chart to create.",
+					"enum": ["bar", "barStacked", "barStackedPercent", "bar3D", "barStacked3D", "barStackedPercent3D", "barStackedPercent3DPerspective", "horizontalBar", "horizontalBarStacked", "horizontalBarStackedPercent", "horizontalBar3D", "horizontalBarStacked3D", "horizontalBarStackedPercent3D", "lineNormal", "lineStacked", "lineStackedPercent", "line3D", "pie", "pie3D", "doughnut", "scatter", "stock", "area", "areaStacked", "areaStackedPercent"],
+					"default": "bar"
+				},
+				"title": {
+					"type": "string",
+					"description": "Chart title text."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Create a bar chart from current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Create a line chart from current selection",
+				"arguments": { "chartType": "lineNormal" }
+			},
+			{
+				"prompt": "Create a pie chart from specific range",
+				"arguments": { "range": "A1:B10", "chartType": "pie" }
+			},
+			{
+				"prompt": "Create a chart with title",
+				"arguments": { "title": "Sales Overview" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.chartType = params.chartType || "bar";
+		Asc.scope.title = params.title;
+
+		await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let chartRange;
+
+			if (Asc.scope.range) {
+				chartRange = Asc.scope.range;
+			} else {
+				let selection = Api.GetSelection();
+				chartRange = selection.GetAddress(true, true, "xlA1", false);
+			}
+
+			let range = ws.GetRange(chartRange);
+			let fromRow = range.GetRow() + 3;
+			let fromCol = range.GetCol();
+
+			let widthEMU = 130 * 36000;
+			let heightEMU = 80 * 36000;
+
+			let chart = ws.AddChart(
+				chartRange,
+				true,
+				Asc.scope.chartType,
+				2,
+				widthEMU,
+				heightEMU,
+				fromCol,
+				0,
+				fromRow,
+				0
+			);
+			if (chart && Asc.scope.title) {
+				chart.SetTitle(Asc.scope.title, 14);
+			}
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "addCellValueCondition",
+		"description": "Creates conditional formatting rules based on cell values using comparison operators (greater than, less than, equal to, between, etc.). This is the most flexible conditional formatting option, allowing you to highlight cells that meet specific criteria with custom colors for background and text.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to apply condition (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"operator": {
+					"type": "string",
+					"description": "Comparison operator - 'xlGreater', 'xlLess', 'xlEqual', 'xlNotEqual', 'xlGreaterEqual', 'xlLessEqual', 'xlBetween', 'xlNotBetween'.",
+					"enum": ["xlGreater", "xlLess", "xlEqual", "xlNotEqual", "xlGreaterEqual", "xlLessEqual", "xlBetween", "xlNotBetween"]
+				},
+				"value1": {
+					"type": ["string", "number"],
+					"description": "First comparison value or formula."
+				},
+				"value2": {
+					"type": ["string", "number"],
+					"description": "Second comparison value for 'xlBetween' and 'xlNotBetween' operators."
+				},
+				"fillColor": {
+					"type": "object",
+					"description": "Background color {r: 255, g: 0, b: 0}.",
+					"properties": {
+						"r": { "type": "number" },
+						"g": { "type": "number" },
+						"b": { "type": "number" }
+					}
+				},
+				"fontColor": {
+					"type": "object",
+					"description": "Font color {r: 0, g: 0, b: 0}.",
+					"properties": {
+						"r": { "type": "number" },
+						"g": { "type": "number" },
+						"b": { "type": "number" }
+					}
+				}
+			},
+			"required": ["operator", "value1"]
+		},
+		"examples": [
+			{
+				"prompt": "Highlight cells greater than 10 with red background",
+				"arguments": { "operator": "xlGreater", "value1": 10, "fillColor": { "r": 255, "g": 0, "b": 0 } }
+			},
+			{
+				"prompt": "Highlight cells between 5 and 15 with yellow background",
+				"arguments": { "range": "A1:D10", "operator": "xlBetween", "value1": 5, "value2": 15, "fillColor": { "r": 255, "g": 255, "b": 0 } }
+			},
+			{
+				"prompt": "When user asks to highlight cells based on values (greater than, less than, equal to)",
+				"arguments": { "range": "A1:D10", "operator": "xlGreater", "value1": 100 }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.operator = params.operator;
+		Asc.scope.value1 = params.value1;
+		Asc.scope.value2 = params.value2;
+		Asc.scope.fillColor = params.fillColor;
+		Asc.scope.fontColor = params.fontColor;
+
+		await Asc.Editor.callCommand(function() {
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection;
+			}
+			
+			let formatConditions = range.GetFormatConditions();
+			let condition = formatConditions.Add("xlCellValue", Asc.scope.operator, Asc.scope.value1, Asc.scope.value2);
+			
+			if (condition) {
+				if (Asc.scope.fontColor) {
+					let fontColor = Api.CreateColorFromRGB(Asc.scope.fontColor.r, Asc.scope.fontColor.g, Asc.scope.fontColor.b);
+					let font = condition.GetFont();
+					if (font && font.SetColor) {
+						font.SetColor(fontColor);
+					}
+				}
+				
+				if (Asc.scope.fillColor) {
+					let fillColor = Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b);
+					condition.SetFillColor(fillColor);
+				} else {
+					let defaultFillColor = Api.CreateColorFromRGB(255, 255, 0);
+					condition.SetFillColor(defaultFillColor);
+				}
+			}
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
 		"name": "addTop10Condition",
 		"description": "Highlights the top or bottom ranked values in a range. You can choose to highlight by item count (e.g., top 10 values) or by percentage (e.g., top 20% of values). Perfect for identifying highest performers, outliers, or values that need attention in your dataset.",
 		"parameters": {
@@ -4201,8 +4563,8 @@ HELPERS.cell.push((function(){
 HELPERS.cell.push((function(){
 
 	let func = new RegisteredFunction({
-		"name": "addUniqueValues",
-		"description": "Highlights unique values or duplicate values in a range. Use this to identify data that appears only once (unique) or multiple times (duplicates) within the specified range. Perfect for data validation and cleanup tasks.",
+		"name": "addAboveAverage",
+		"description": "Highlights cells that contain values above or below the average of all values in the range. This is useful for identifying data points that deviate significantly from the typical values in your dataset.",
 		"parameters": {
 			"type": "object",
 			"properties": {
@@ -4210,15 +4572,19 @@ HELPERS.cell.push((function(){
 					"type": "string",
 					"description": "Cell range to apply condition (e.g., 'A1:D10'). If omitted, uses active/selected range."
 				},
-				"duplicateUnique": {
-					"type": "string",
-					"description": "'unique' to highlight unique values, 'duplicate' to highlight duplicates (default: 'duplicate').",
-					"enum": ["unique", "duplicate"],
-					"default": "duplicate"
+				"aboveBelow": {
+					"type": "boolean",
+					"description": "True for above average, false for below average (default: true).",
+					"default": true
+				},
+				"numStdDev": {
+					"type": "number",
+					"description": "Number of standard deviations from average (default: 0 for simple average).",
+					"default": 0
 				},
 				"fillColor": {
 					"type": "object",
-					"description": "Background color {r: 255, g: 255, b: 0}.",
+					"description": "Background color {r: 255, g: 0, b: 0}.",
 					"properties": {
 						"r": { "type": "number" },
 						"g": { "type": "number" },
@@ -4230,23 +4596,24 @@ HELPERS.cell.push((function(){
 		},
 		"examples": [
 			{
-				"prompt": "Highlight duplicate values with default color",
+				"prompt": "Highlight cells above average with default color",
 				"arguments": {}
 			},
 			{
-				"prompt": "Highlight unique values with yellow background",
-				"arguments": { "duplicateUnique": "unique", "fillColor": { "r": 255, "g": 255, "b": 0 } }
+				"prompt": "Highlight cells below average with red background",
+				"arguments": { "aboveBelow": false, "fillColor": { "r": 255, "g": 0, "b": 0 } }
 			},
 			{
-				"prompt": "When user asks to highlight duplicate or unique values",
-				"arguments": { "duplicateUnique": "unique" }
+				"prompt": "When user asks to highlight above/below average values",
+				"arguments": { "aboveBelow": true }
 			}
 		]
 	});
 
 	func.call = async function(params) {
 		Asc.scope.range = params.range;
-		Asc.scope.duplicateUnique = params.duplicateUnique || 'duplicate';
+		Asc.scope.aboveBelow = params.aboveBelow !== false; // default true
+		Asc.scope.numStdDev = params.numStdDev || 0;
 		Asc.scope.fillColor = params.fillColor;
 
 		await Asc.Editor.callCommand(function() {
@@ -4255,24 +4622,28 @@ HELPERS.cell.push((function(){
 			if (Asc.scope.range) {
 				range = ws.GetRange(Asc.scope.range);
 			} else {
-				range = ws.Selection;
+				range = ws.GetSelection();
 			}
-			
-			let formatConditions = range.GetFormatConditions();
-			let condition = formatConditions.AddUniqueValues();
 
+			if (!range) {
+				return;
+			}
+
+			let formatConditions = range.GetFormatConditions();
+			let condition = formatConditions.AddAboveAverage();
+			
 			if (condition) {
-				if (Asc.scope.duplicateUnique === 'unique') {
-					condition.SetDupeUnique("xlUnique");
-				} else {
-					condition.SetDupeUnique("xlDuplicate");
+				condition.SetAboveBelow(Asc.scope.aboveBelow);
+				
+				if (Asc.scope.numStdDev !== 0) {
+					condition.SetNumStdDev(Asc.scope.numStdDev);
 				}
 				
 				if (Asc.scope.fillColor) {
 					let fillColor = Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b);
 					condition.SetFillColor(fillColor);
 				} else {
-					let defaultFillColor = Api.CreateColorFromRGB(255, 192, 203);
+					let defaultFillColor = Api.CreateColorFromRGB(255, 165, 0);
 					condition.SetFillColor(defaultFillColor);
 				}
 			}
@@ -4284,29 +4655,49 @@ HELPERS.cell.push((function(){
 HELPERS.cell.push((function(){
 
 	let func = new RegisteredFunction({
-		"name": "clearConditionalFormatting",
-		"description": "Removes all conditional formatting rules from the specified range or current selection. This function cleans up all existing conditional formatting including color scales, data bars, icon sets, and highlight cell rules, returning cells to their default appearance.",
+		"name": "addDataBars",
+		"description": "Adds data bar conditional formatting to display values as horizontal bars within cells. The length of each bar represents the value relative to other values in the range. Useful for creating in-cell bar charts and comparing values at a glance without additional charts.",
 		"parameters": {
 			"type": "object",
 			"properties": {
 				"range": {
 					"type": "string",
-					"description": "Cell range to clear formatting (e.g., 'A1:D10'). If omitted, uses active/selected range."
+					"description": "Cell range to apply data bars (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"barColor": {
+					"type": "object",
+					"description": "Color of the data bars {r: 0, g: 112, b: 192} (default: blue).",
+					"properties": {
+						"r": { "type": "number" },
+						"g": { "type": "number" },
+						"b": { "type": "number" }
+					}
+				},
+				"showValue": {
+					"type": "boolean",
+					"description": "Whether to show the cell values along with bars (default: true).",
+					"default": true
+				},
+				"direction": {
+					"type": "string",
+					"description": "Direction of bars - 'leftToRight', 'rightToLeft' (default: 'leftToRight').",
+					"enum": ["leftToRight", "rightToLeft"],
+					"default": "leftToRight"
 				}
 			},
 			"required": []
 		},
 		"examples": [
 			{
-				"prompt": "Clear all conditional formatting from current selection",
+				"prompt": "Apply data bars conditional formatting to current selection",
 				"arguments": {}
 			},
 			{
-				"prompt": "Clear conditional formatting from range A1:D10",
-				"arguments": { "range": "A1:D10" }
+				"prompt": "Apply data bars with custom color to range A1:D10",
+				"arguments": { "range": "A1:D10", "barColor": { "r": 255, "g": 0, "b": 0 } }
 			},
 			{
-				"prompt": "When user asks to remove, delete, clear conditional formatting",
+				"prompt": "When user asks to add data bars, bar chart formatting, progress bars",
 				"arguments": { "range": "A1:D10" }
 			}
 		]
@@ -4314,6 +4705,9 @@ HELPERS.cell.push((function(){
 
 	func.call = async function(params) {
 		Asc.scope.range = params.range;
+		Asc.scope.barColor = params.barColor;
+		Asc.scope.showValue = params.showValue;
+		Asc.scope.direction = params.direction;
 
 		await Asc.Editor.callCommand(function() {
 			let ws = Api.GetActiveSheet();
@@ -4325,461 +4719,26 @@ HELPERS.cell.push((function(){
 			}
 			
 			let formatConditions = range.GetFormatConditions();
-			formatConditions.Delete();
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "explainFormula",
-		"description": "Analyzes and explains Excel formulas in natural language. Uses AI to provide detailed explanations of formula logic, function parameters, nested operations, and expected results. The explanation is added as a cell comment to the cell containing the formula. Particularly useful for understanding complex formulas with multiple nested functions or unfamiliar Excel functions. Keeps explanations concise (under 1024 characters recommended) while covering all essential information.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range containing formula to explain (e.g., 'A1'). If omitted, uses active/selected cell."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Explain formula in active cell",
-				"arguments": {}
-			},
-			{
-				"prompt": "Explain formula in specific cell A1",
-				"arguments": { "range": "A1" }
-			},
-			{
-				"prompt": "Explain formula in cell B5",
-				"arguments": { "range": "B5" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-
-		let formulaData = await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let _range;
-
-			if (!Asc.scope.range) {
-				_range = Api.GetSelection();
-			} else {
-				_range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!_range || !_range.GetCells(1, 1)) {
-				return null;
-			}
-
-			let cell = _range.GetCells(1, 1);
-			let formula = cell.GetFormula();
-			let cellAddress = cell.GetAddress();
+			let databar = formatConditions.AddDatabar();
 			
-			return {
-				formula: formula,
-				address: cellAddress,
-				hasFormula: formula && formula.toString().startsWith('=')
-			};
-		});
-
-		if (!formulaData || !formulaData.hasFormula) {
-			return; // No formula to explain
-		}
-
-		let argPrompt = "Explain the following Excel formula in detail:\n\n" +
-			"Formula: " + formulaData.formula + "\n" +
-			"Cell: " + formulaData.address + "\n\n" +
-			"IMPORTANT RULES:\n" +
-			"1. Provide a clear, detailed explanation of what the formula does.\n" +
-			"2. Break down each part of the formula if it's complex.\n" +
-			"3. Explain the functions used and their parameters.\n" +
-			"4. Describe the expected result or output.\n" +
-			"5. Use simple, understandable language.\n" +
-			"6. If there are nested functions, explain the order of operations.\n" +
-			"7. Mention any potential issues or common mistakes.\n" +
-			"8. Keep the explanation concise but comprehensive.\n" +
-			"9. Be brief and avoid unnecessary verbose explanations.\n" +
-			"10. Get straight to the point without filler text.\n" +
-			"11. Focus only on essential information.\n" +
-			"12. Keep response length under 1024 characters (recommended), maximum 32767 characters.\n" +
-			"13. Prioritize the most important information if length constraint requires cuts.\n\n" +
-			"Please provide a detailed but concise explanation of this formula.";
-
-		let requestEngine = AI.Request.create(AI.ActionType.Chat);
-		if (!requestEngine)
-			return;
-
-		let isSendedEndLongAction = false;
-		async function checkEndAction() {
-			if (!isSendedEndLongAction) {
-				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-				isSendedEndLongAction = true;
-			}
-		}
-
-		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		let explanation = await requestEngine.chatRequest(argPrompt, false, async function(data) {
-			if (!data)
-				return;
-			await checkEndAction();
-		});
-
-		await checkEndAction();
-		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-
-		// Add comment with explanation to the cell
-		if (explanation) {
-			Asc.scope.explanation = explanation;
-			await Asc.Editor.callCommand(function(){
-				let ws = Api.GetActiveSheet();
-				let _range;
-
-				if (!Asc.scope.range) {
-					_range = Api.GetSelection();
+			if (databar) {
+				if (Asc.scope.barColor) {
+					let barColor = Api.CreateColorFromRGB(Asc.scope.barColor.r, Asc.scope.barColor.g, Asc.scope.barColor.b);
+					databar.SetBarColor(barColor);
 				} else {
-					_range = ws.GetRange(Asc.scope.range);
+					let defaultBarColor = Api.CreateColorFromRGB(70, 130, 180);
+					databar.SetBarColor(defaultBarColor);
 				}
-
-				if (_range) {
-					let cell = _range.GetCells(1, 1);
-					if (cell) {
-						// Create comment with formula explanation
-						let commentText = "Formula Explanation:\n\n" + Asc.scope.explanation;
-						cell.AddComment(commentText, "AI Assistant");
-					}
-				}
-			});
-		}
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "fillMissingData",
-		"description": "Intelligently fills missing or empty cells in a data range using appropriate statistical methods. For numeric columns, fills with median values. For categorical columns, uses the most frequent value. For time series data, applies forward fill (uses the previous non-empty value). Automatically detects column types and highlights filled cells with light blue color for easy identification.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to fill missing data (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Fill missing data in the current selection with appropriate values based on column types",
-				"arguments": {}
-			},
-			{
-				"prompt": "Fill missing data in range A1:D10",
-				"arguments": { "range": "A1:D10" }
-			},
-			{
-				"prompt": "Fill empty cells in active range using smart algorithms (median for numeric, most frequent for categorical, forward fill for time series)",
-				"arguments": {}
-			},
-			{
-				"prompt": "Fill missing values, fill empty cells, complete data, or handle null values",
-				"arguments": {}
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		
-		let rangeData = await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection;
-			}
-			return [range.Address, range.GetValue2()];
-		});
-
-		//make csv from source data
-		let address = rangeData[0];
-		let data = rangeData[1];
-		let csv = data.map(function(item){
-			return item.map(function(value) {
-				if (value == null) return '';
-				const str = String(value);
-				if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-					return '"' + str.replace(/"/g, '""') + '"';
-				}
-				return str;
-			}).join(',');
-		}).join('\n');
-
-		//make ai request for missing data analysis
-		const argPrompt = [
-			"You are a data analyst.",
-			"Input is CSV (comma-separated, ','). Empty cells represent missing values to be filled.",
-			"Rules:",
-			"1. NUMERIC columns: Fill missing values with MEDIAN of non-empty values.",
-			"2. CATEGORICAL columns: Fill missing values with MOST FREQUENT value.", 
-			"3. TIME_SERIES columns: Fill missing values with FORWARD FILL (previous non-empty value).",
-			"",
-			"Output format: JSON array with exact row/column coordinates (1-based indexing):",
-			"[",
-			"  {\"row\": 2, \"column\": 1, \"new_value\": 25.5},",
-			"  {\"row\": 3, \"column\": 2, \"new_value\": \"Category A\"},",
-			"  {\"row\": 4, \"column\": 3, \"new_value\": \"FORWARD_FILL\"}",
-			"]",
-			"- Use \"FORWARD_FILL\" as new_value for time series columns",
-			"- Row and column numbers are 1-based (first row = 1, first column = 1)",
-			"- Only include cells that need to be filled",
-			"- The answer MUST be valid JSON array",
-			"- No extra text, spaces, or newlines outside JSON",
-			"",
-			"CSV:",
-			csv
-		].join('\n');
-
-		let requestEngine = AI.Request.create(AI.ActionType.Chat);
-		if (!requestEngine)
-			return;
-
-		let isSendedEndLongAction = false;
-		async function checkEndAction() {
-			if (!isSendedEndLongAction) {
-				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-				isSendedEndLongAction = true;
-			}
-		}
-
-		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
-			if (!data)
-				return;
-		});
-		await checkEndAction();
-		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-
-		//Parse AI result
-		function parseAIResult(result) {
-			try {
-				const jsonMatch = result.match(/\[[\s\S]*\]/);
-				if (!jsonMatch) return null;
-				return JSON.parse(jsonMatch[0]);
-			} catch (e) {
-				return null;
-			}
-		}
-
-		Asc.scope.address = address;
-		Asc.scope.fillData = parseAIResult(aiResult);
-		Asc.scope.originalData = data;
-
-		if (Asc.scope.fillData) {
-			await Asc.Editor.callCommand(function() {
-				let ws = Api.GetActiveSheet();
-				let range = ws.GetRange(Asc.scope.address);
-				let fillData = Asc.scope.fillData;
-				let originalData = Asc.scope.originalData;
 				
-				let highlightColor = Api.CreateColorFromRGB(173, 216, 230);
+				if (typeof Asc.scope.showValue === "boolean") {
+					databar.SetShowValue(Asc.scope.showValue);
+				}
 				
-				for (let i = 0; i < fillData.length; i++) {
-					let fillItem = fillData[i];
-					let rowNum = fillItem.row;
-					let colNum = fillItem.column;
-					let newValue = fillItem.new_value;
-					
-					if (newValue === "FORWARD_FILL") {
-						let lastValue = null;
-						for (let searchRow = rowNum - 1; searchRow >= 1; searchRow--) {
-							let searchValue = originalData[searchRow - 1][colNum - 1];
-							if (searchValue != null && searchValue !== '') {
-								lastValue = searchValue;
-								break;
-							}
-						}
-						if (lastValue != null) {
-							let cell = range.GetCells(rowNum, colNum);
-							cell.Value = lastValue;
-							cell.FillColor = highlightColor;
-						}
-					} else {
-						let cell = range.GetCells(rowNum, colNum);
-						cell.Value = newValue;
-						cell.FillColor = highlightColor;
-					}
+				if (Asc.scope.direction) {
+					databar.SetDirection(Asc.scope.direction);
 				}
-			});
-		}
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "fixFormula",
-		"description": "Scans cells for formulas containing errors and attempts to fix them automatically. Detects common formula errors including #DIV/0! (division by zero), #REF! (invalid cell references), #NAME? (unrecognized function names), #VALUE! (wrong value types), and #N/A (value not available). Applies appropriate fixes: wraps division operations in IF statements, corrects cell references, fixes function name typos, and adds IFERROR wrappers. Preserves formulas that have no errors. Can scan entire sheet or specific range.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to fix formulas (e.g., 'A1:D10'). If omitted, scans entire sheet."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Fix formula errors in entire sheet",
-				"arguments": {}
-			},
-			{
-				"prompt": "Fix formula errors in specific range A1:D10",
-				"arguments": { "range": "A1:D10" }
-			},
-			{
-				"prompt": "Find and fix formula errors like #DIV/0!, #REF!, #NAME?",
-				"arguments": {}
-			},
-			{
-				"prompt": "Scan and correct formula errors in selected range",
-				"arguments": { "range": "A1:Z100" }
 			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-
-		let rangeData = await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let _range;
-
-			if (!Asc.scope.range) {
-				_range = ws.GetUsedRange();
-			} else {
-				_range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!_range)
-				return null;
-
-			let formulaData = [];
-			let startRow = _range.Row;
-			let startCol = _range.Col;
-
-			// Use ForEach to iterate through each cell and get formulas
-			_range.ForEach(function(cell) {
-				let formula = cell.GetFormula();
-				if (formula && formula.startsWith('=')) {
-					let cellRow = cell.Row - startRow;
-					let cellCol = cell.Col - startCol;
-					
-					formulaData.push({
-						row: cellRow,
-						col: cellCol,
-						formula: formula,
-						cellValue: formula,
-						address: cell.Address
-					});
-				}
-			});
-
-			return {
-				formulas: formulaData,
-				startRow: startRow,
-				startCol: startCol
-			};
 		});
-
-		if (!rangeData || !rangeData.formulas || rangeData.formulas.length === 0) {
-			return;
-		}
-
-		let formulaData = rangeData.formulas;
-		let formulaValues = formulaData.map(function(item) { return item.cellValue; });
-		
-		let argPrompt = "Fix formulas with errors in this array: [" + formulaValues.join(',') + "]\n\n" +
-			"Return ONLY a JSON array of fixed formulas.\n" +
-			"Fix common errors: #DIV/0! (use IF), #REF! (fix references), #NAME? (fix typos), #VALUE! (fix types), #N/A (use IFERROR)\n" +
-			"If formula has no errors, return it unchanged.\n" +
-			"Example: input [=A1/B1,=SUM(A:A)] return [=IF(B1<>0,A1/B1,0),=SUM(A:A)]\n" +
-			"CRITICAL: Response must be ONLY the JSON array, nothing else.\n" +
-			"Invalid data formats are not allowed - must be valid JSON array format.\n" +
-			"No text, no explanations, no additional formatting - ONLY [\"=formula1\",\"=formula2\"] format:";
-
-		let requestEngine = AI.Request.create(AI.ActionType.Chat);
-		if (!requestEngine)
-			return;
-
-		let isSendedEndLongAction = false;
-		async function checkEndAction() {
-			if (!isSendedEndLongAction) {
-				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-				isSendedEndLongAction = true;
-			}
-		}
-
-		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
-			if (!data)
-				return;
-		});
-
-		await checkEndAction();
-
-		if (aiResult) {
-			try {
-				let fixedFormulas = JSON.parse(aiResult.trim());
-				if (Array.isArray(fixedFormulas) && fixedFormulas.length > 0) {
-					Asc.scope.fixedFormulas = fixedFormulas;
-					Asc.scope.formulaData = formulaData;
-					Asc.scope.rangeData = rangeData;
-					
-					await Asc.Editor.callCommand(function(){
-						let ws = Api.GetActiveSheet();
-						
-						for (let i = 0; i < Asc.scope.fixedFormulas.length && i < Asc.scope.formulaData.length; i++) {
-							let fixedFormula = Asc.scope.fixedFormulas[i];
-							let originalFormula = Asc.scope.formulaData[i];
-							
-							if (fixedFormula && originalFormula && typeof fixedFormula === 'string') {
-								let targetRow = Asc.scope.rangeData.startRow + originalFormula.row;
-								let targetCol = Asc.scope.rangeData.startCol + originalFormula.col;
-								
-								let cell = ws.GetCells(targetRow, targetCol);
-								if (cell) {
-									cell.SetValue(fixedFormula);
-								}
-							}
-						}
-					});
-				}
-			} catch (error) {
-				console.error("Error parsing formula fix result:", error);
-			}
-		}
-
-		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
 	};
 
 	return func;
@@ -5077,61 +5036,571 @@ HELPERS.cell.push((function(){
 HELPERS.cell.push((function(){
 
 	let func = new RegisteredFunction({
-		"name": "highlightAnomalies",
-		"description": "Detects and highlights statistical outliers (anomalies) in numeric data using the IQR (Interquartile Range) method or Z-score analysis. Applies conservative outlier detection to avoid false positives - only marks clear statistical anomalies. Automatically extracts numeric values from the range, calculates quartiles, and identifies values that fall outside Q1-1.5*IQR or Q3+1.5*IQR. Highlights detected anomalies with customizable colors. Requires at least 4 numeric values for analysis.",
+		"name": "setSort",
+		"description": "Sorts data in a range by a single column in ascending or descending order.",
 		"parameters": {
 			"type": "object",
 			"properties": {
 				"range": {
 					"type": "string",
-					"description": "Cell range to analyze for anomalies (e.g., 'A1:D10'). If omitted, uses current selection or entire used range."
+					"description": "Cell range to sort (e.g., 'A1:D10'). If omitted, uses active/selected range."
 				},
-				"highlightColor": {
+				"key1": {
+					"type": ["string", "number"],
+					"description": "Sort field - cell reference (e.g., 'A1'), column index (1-based), or column name. If omitted, uses first column."
+				},
+				"sortOrder1": {
 					"type": "string",
-					"description": "Color to highlight anomalies (hex color like '#FF0000' or preset color name like 'red'). Default: 'yellow'.",
-					"default": "yellow"
+					"description": "Sort order: 'xlAscending' or 'xlDescending'.",
+					"enum": ["xlAscending", "xlDescending"],
+					"default": "xlAscending"
+				},
+				"header": {
+					"type": "string",
+					"description": "Specifies if first row contains headers: 'xlYes' or 'xlNo'.",
+					"enum": ["xlYes", "xlNo"],
+					"default": "xlNo"
 				}
 			},
 			"required": []
 		},
 		"examples": [
 			{
-				"prompt": "Highlight anomalies in current selection",
-				"arguments": {}
+				"prompt": "Sort range A1:D10 by first column in ascending order",
+				"arguments": { "range": "A1:D10", "sortOrder1": "xlAscending" }
 			},
 			{
-				"prompt": "Highlight anomalies in specific range A1:D10",
-				"arguments": { "range": "A1:D10" }
+				"prompt": "Sort active range in descending order",
+				"arguments": { "sortOrder1": "xlDescending" }
 			},
 			{
-				"prompt": "Highlight anomalies in red color",
-				"arguments": { "highlightColor": "red" }
-			},
-			{
-				"prompt": "Highlight anomalies in specific range with custom color",
-				"arguments": { "range": "A1:D10", "highlightColor": "#FF5733" }
-			},
-			{
-				"prompt": "Analyze selected range for statistical outliers and highlight them",
-				"arguments": {}
-			},
-			{
-				"prompt": "Find and highlight anomalous values in data with blue color",
-				"arguments": { "highlightColor": "blue" }
+				"prompt": "Sort by column name 'Name' with headers",
+				"arguments": { "key1": "Name", "header": "xlYes" }
 			}
 		]
 	});
 
 	func.call = async function(params) {
 		Asc.scope.range = params.range;
-		Asc.scope.highlightColor = params.highlightColor || "yellow";
+		Asc.scope.key1 = params.key1;
+		Asc.scope.sortOrder1 = params.sortOrder1 || "xlAscending";
+		Asc.scope.header = params.header || "xlNo";
+
+		async function findColumnByName(fieldName) {
+			if (!fieldName) return null;
+
+			let insertRes = await Asc.Editor.callCommand(function(){
+				let ws = Api.GetActiveSheet();
+				let _range;
+
+				if (!Asc.scope.range) {
+					_range = Api.GetSelection();
+				} else {
+					_range = ws.GetRange(Asc.scope.range);
+				}
+
+				return _range.GetValue2();
+			});
+
+			let csv = insertRes.map(function(item){
+				return item.map(function(value) {
+					if (value == null) return '';
+					const str = String(value);
+					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+						return '"' + str.replace(/"/g, '""') + '"';
+					}
+					return str;
+				}).join(',');
+			}).join('\n');
+
+			let argPromt = "Find column index for header '" + fieldName + "' in the following CSV data.\n\n" +
+			"IMPORTANT RULES:\n" +
+			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
+			"2. Find EXACT match first. If exact match exists, return its index.\n" +
+			"3. If no exact match, then look for partial matches.\n" +
+			"4. Case-insensitive comparison allowed.\n" +
+			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
+			"6. Count positions carefully: each comma marks a column boundary.\n" +
+			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
+			"8. If the header is in the 3rd column, return only: 3\n\n" +
+			"CSV data:\n" + csv;
+			
+			let requestEngine = AI.Request.create(AI.ActionType.Chat);
+			if (!requestEngine)
+				return null;
+
+			let isSendedEndLongAction = false;
+			async function checkEndAction() {
+				if (!isSendedEndLongAction) {
+					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+					isSendedEndLongAction = true
+				}
+			}
+
+			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
+				if (!data)
+					return;
+				await checkEndAction();
+			});
+
+			await checkEndAction();
+			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+			return result - 0;
+		}
+
+		if (Asc.scope.key1 && typeof Asc.scope.key1 === 'string' && isNaN(Asc.scope.key1) && !Asc.scope.key1.match(/^[A-Z]+\d+$/i)) {
+			Asc.scope.key1 = await findColumnByName(Asc.scope.key1);
+		}
+
+		await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let range;
+
+			if (!Asc.scope.range) {
+				range = Api.GetSelection();
+			} else {
+				range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!range) {
+				return;
+			}
+
+			if (Asc.scope.header === "xlYes") {
+				range.SetOffset(1, 0);
+			}
+
+			let key1 = null;
+
+			function adjustSortKey(keyValue) {
+				if (!keyValue) {
+					return ws.GetCells(range.GetRow(), range.GetCol());
+				}
+
+				if (typeof keyValue === 'number') {
+					return ws.GetCells(range.GetRow(), range.GetCol() + keyValue - 1);
+				} else if (typeof keyValue === 'string') {
+					try {
+						let keyRange = ws.GetRange(keyValue);
+						return keyRange || keyValue;
+					} catch {
+						return keyValue;
+					}
+				} else {
+					return keyValue;
+				}
+			}
+
+			key1 = adjustSortKey(Asc.scope.key1);
+
+			range.SetSort(
+				key1,
+				Asc.scope.sortOrder1,
+				null,
+				null,
+				null,
+				null,
+				Asc.scope.header
+			);
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "setMultiSort",
+		"description": "Sorts data by multiple columns (up to 3 levels). Use this when you need to sort by primary, secondary, and tertiary sort keys. Each level can have its own sort order.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to sort (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"key1": {
+					"type": ["string", "number"],
+					"description": "First sort field - cell reference, column index (1-based), or column name. If omitted, uses first column."
+				},
+				"sortOrder1": {
+					"type": "string",
+					"description": "Sort order for key1: 'xlAscending' or 'xlDescending'.",
+					"enum": ["xlAscending", "xlDescending"],
+					"default": "xlAscending"
+				},
+				"key2": {
+					"type": ["string", "number"],
+					"description": "Second sort field - cell reference, column index, or column name. If omitted, uses second column."
+				},
+				"sortOrder2": {
+					"type": "string",
+					"description": "Sort order for key2: 'xlAscending' or 'xlDescending'.",
+					"enum": ["xlAscending", "xlDescending"],
+					"default": "xlAscending"
+				},
+				"key3": {
+					"type": ["string", "number"],
+					"description": "Third sort field - cell reference, column index, or column name."
+				},
+				"sortOrder3": {
+					"type": "string",
+					"description": "Sort order for key3: 'xlAscending' or 'xlDescending'.",
+					"enum": ["xlAscending", "xlDescending"],
+					"default": "xlAscending"
+				},
+				"header": {
+					"type": "string",
+					"description": "Specifies if first row contains headers: 'xlYes' or 'xlNo'.",
+					"enum": ["xlYes", "xlNo"],
+					"default": "xlNo"
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Sort by two columns",
+				"arguments": {}
+			},
+			{
+				"prompt": "Sort by Name and Age",
+				"arguments": { "key1": "Name", "key2": "Age", "header": "xlYes" }
+			},
+			{
+				"prompt": "Sort first column ascending, second descending",
+				"arguments": { "sortOrder1": "xlAscending", "sortOrder2": "xlDescending" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.key1 = params.key1;
+		Asc.scope.sortOrder1 = params.sortOrder1 || "xlAscending";
+		Asc.scope.key2 = params.key2;
+		Asc.scope.sortOrder2 = params.sortOrder2 || "xlAscending";
+		Asc.scope.key3 = params.key3;
+		Asc.scope.sortOrder3 = params.sortOrder3 || "xlAscending";
+		Asc.scope.header = params.header || "xlNo";
+
+		async function findColumnByName(fieldName) {
+			if (!fieldName) return null;
+
+			let insertRes = await Asc.Editor.callCommand(function(){
+				let ws = Api.GetActiveSheet();
+				let _range;
+
+				if (!Asc.scope.range) {
+					_range = Api.GetSelection();
+				} else {
+					_range = ws.GetRange(Asc.scope.range);
+				}
+
+				return _range.GetValue2();
+			});
+
+			let csv = insertRes.map(function(item){
+				return item.map(function(value) {
+					if (value == null) return '';
+					const str = String(value);
+					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+						return '"' + str.replace(/"/g, '""') + '"';
+					}
+					return str;
+				}).join(',');
+			}).join('\n');
+
+			let argPromt = "Find column index for header '" + fieldName + "' in the following CSV data.\n\n" +
+			"IMPORTANT RULES:\n" +
+			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
+			"2. Find EXACT match first. If exact match exists, return its index.\n" +
+			"3. If no exact match, then look for partial matches.\n" +
+			"4. Case-insensitive comparison allowed.\n" +
+			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
+			"6. Count positions carefully: each comma marks a column boundary.\n" +
+			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
+			"8. If the header is in the 3rd column, return only: 3\n\n" +
+			"CSV data:\n" + csv;
+			
+			let requestEngine = AI.Request.create(AI.ActionType.Chat);
+			if (!requestEngine)
+				return null;
+
+			let isSendedEndLongAction = false;
+			async function checkEndAction() {
+				if (!isSendedEndLongAction) {
+					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+					isSendedEndLongAction = true
+				}
+			}
+
+			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
+				if (!data)
+					return;
+				await checkEndAction();
+			});
+
+			await checkEndAction();
+			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+			return result - 0;
+		}
+
+		if (Asc.scope.key1 && typeof Asc.scope.key1 === 'string' && isNaN(Asc.scope.key1) && !Asc.scope.key1.match(/^[A-Z]+\d+$/i)) {
+			Asc.scope.key1 = await findColumnByName(Asc.scope.key1);
+		}
+		if (Asc.scope.key2 && typeof Asc.scope.key2 === 'string' && isNaN(Asc.scope.key2) && !Asc.scope.key2.match(/^[A-Z]+\d+$/i)) {
+			Asc.scope.key2 = await findColumnByName(Asc.scope.key2);
+		}
+		if (Asc.scope.key3 && typeof Asc.scope.key3 === 'string' && isNaN(Asc.scope.key3) && !Asc.scope.key3.match(/^[A-Z]+\d+$/i)) {
+			Asc.scope.key3 = await findColumnByName(Asc.scope.key3);
+		}
+
+		await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let range;
+
+			if (!Asc.scope.range) {
+				range = Api.GetSelection();
+			} else {
+				range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!range) {
+				return;
+			}
+
+			if (Asc.scope.header === "xlYes") {
+				range.SetOffset(1, 0);
+			}
+
+			let key1 = null, key2 = null, key3 = null;
+
+			function adjustSortKey(keyValue, defaultColumnOffset) {
+				if (!keyValue) {
+					if (defaultColumnOffset !== undefined) {
+						return ws.GetCells(range.GetRow(), range.GetCol() + defaultColumnOffset);
+					}
+					return null;
+				}
+
+				if (typeof keyValue === 'number') {
+					return ws.GetCells(range.GetRow(), range.GetCol() + keyValue - 1);
+				} else if (typeof keyValue === 'string') {
+					try {
+						let keyRange = ws.GetRange(keyValue);
+						return keyRange || keyValue;
+					} catch {
+						return keyValue;
+					}
+				} else {
+					return keyValue;
+				}
+			}
+
+			key1 = adjustSortKey(Asc.scope.key1, 0);
+			key2 = adjustSortKey(Asc.scope.key2, 1);
+			key3 = adjustSortKey(Asc.scope.key3);
+
+			range.SetSort(
+				key1,
+				Asc.scope.sortOrder1,
+				key2,
+				Asc.scope.sortOrder2,
+				key3,
+				Asc.scope.sortOrder3,
+				Asc.scope.header
+			);
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "summarizeData",
+		"description": "Analyzes and creates a comprehensive text summary of data in the specified range. Automatically determines data types (numeric, categorical, dates) and provides relevant statistics for each type. For numeric data: calculates totals, averages, ranges, and identifies outliers. For categorical data: finds most frequent values and distribution patterns. The summary is placed in a new cell adjacent to the data range with proper formatting and text wrapping.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to summarize data (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Analyze and summarize data in the current selection with key trends, totals, and insights",
+				"arguments": {}
+			},
+			{
+				"prompt": "Summarize data in range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "Create text summary of active range with statistics, patterns, and anomalies",
+				"arguments": {}
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		
+		let rangeData = await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection; 
+			}
+			return [range.Address, range.GetValue2()];
+		});
+
+		let address = rangeData[0];
+		let data = rangeData[1];
+		let colCount = data.length > 0 ? data[0].length : 0;
+		let rowCount = data.length;
+		
+		let csv = data.map(function(item){
+			return item.map(function(value) {
+				if (value == null) return '';
+				const str = String(value);
+				if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+					return '"' + str.replace(/"/g, '""') + '"';
+				}
+				return str;
+			}).join(',');
+		}).join('\n');
+
+		const argPrompt = [
+			"You are a data analyst. Analyze the provided CSV data and create a comprehensive summary.",
+			"",
+			"Instructions:",
+			"1. Determine data types in each column (numeric, categorical/text, dates, mixed)",
+			"2. For NUMERIC data: calculate totals, averages, ranges, identify peaks/outliers",
+			"3. For CATEGORICAL data: find most frequent values, distribution patterns",
+			"4. For MIXED tables: combine insights (e.g., 'Category A average: 120, Category B: 95, outlier in row 15')",
+			"5. Identify trends, patterns, anomalies, and key insights",
+			"",
+			"Output format: Plain text summary in bullet points",
+			"- Start each bullet with '• '",
+			"- Keep concise but informative",
+			"- Include specific numbers and findings",
+			"- Highlight important patterns or anomalies",
+			"- Maximum 10-15 bullet points",
+			"",
+			"CSV data (" + rowCount + " rows, " + colCount + " columns):",
+			csv
+		].join('\n');
+
+		let requestEngine = AI.Request.create(AI.ActionType.Chat);
+		if (!requestEngine)
+			return;
+
+		let isSendedEndLongAction = false;
+		async function checkEndAction() {
+			if (!isSendedEndLongAction) {
+				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+				isSendedEndLongAction = true;
+			}
+		}
+
+		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
+			if (!data)
+				return;
+		});
+		await checkEndAction();
+		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+
+		Asc.scope.address = address;
+		Asc.scope.summary = aiResult;
+		Asc.scope.colCount = colCount;
+
+		if (Asc.scope.summary) {
+			await Asc.Editor.callCommand(function() {
+				let ws = Api.GetActiveSheet();
+				let range = ws.GetRange(Asc.scope.address);
+				let summary = Asc.scope.summary;
+				let colCount = Asc.scope.colCount;
+				
+				let summaryCol = range.GetCol() + colCount;
+				let summaryRow = range.GetRow();
+				
+				let summaryCell = ws.GetCells(summaryRow, summaryCol);
+				summaryCell.Value = "Data Summary:\n" + summary;
+				
+				summaryCell.WrapText = true;
+				summaryCell.AlignVertical = "top";
+				
+				let summaryRange = ws.GetRange(summaryCell.Address);
+				summaryRange.AutoFit(false, true);
+				
+				let highlightColor = Api.CreateColorFromRGB(245, 245, 245);
+				summaryCell.FillColor = highlightColor;
+			});
+		}
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "fixFormula",
+		"description": "Scans cells for formulas containing errors and attempts to fix them automatically. Detects common formula errors including #DIV/0! (division by zero), #REF! (invalid cell references), #NAME? (unrecognized function names), #VALUE! (wrong value types), and #N/A (value not available). Applies appropriate fixes: wraps division operations in IF statements, corrects cell references, fixes function name typos, and adds IFERROR wrappers. Preserves formulas that have no errors. Can scan entire sheet or specific range.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to fix formulas (e.g., 'A1:D10'). If omitted, scans entire sheet."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Fix formula errors in entire sheet",
+				"arguments": {}
+			},
+			{
+				"prompt": "Fix formula errors in specific range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "Find and fix formula errors like #DIV/0!, #REF!, #NAME?",
+				"arguments": {}
+			},
+			{
+				"prompt": "Scan and correct formula errors in selected range",
+				"arguments": { "range": "A1:Z100" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
 
 		let rangeData = await Asc.Editor.callCommand(function(){
 			let ws = Api.GetActiveSheet();
 			let _range;
 
 			if (!Asc.scope.range) {
-				_range = Api.GetSelection();
+				_range = ws.GetUsedRange();
 			} else {
 				_range = ws.GetRange(Asc.scope.range);
 			}
@@ -5139,90 +5608,49 @@ HELPERS.cell.push((function(){
 			if (!_range)
 				return null;
 
-			let values = _range.GetValue2();
-			let address = _range.Address;
+			let formulaData = [];
 			let startRow = _range.Row;
 			let startCol = _range.Col;
 
+			// Use ForEach to iterate through each cell and get formulas
+			_range.ForEach(function(cell) {
+				let formula = cell.GetFormula();
+				if (formula && formula.startsWith('=')) {
+					let cellRow = cell.Row - startRow;
+					let cellCol = cell.Col - startCol;
+					
+					formulaData.push({
+						row: cellRow,
+						col: cellCol,
+						formula: formula,
+						cellValue: formula,
+						address: cell.Address
+					});
+				}
+			});
+
 			return {
-				values: values,
-				address: address,
+				formulas: formulaData,
 				startRow: startRow,
 				startCol: startCol
 			};
 		});
 
-		if (!rangeData || !rangeData.values) {
+		if (!rangeData || !rangeData.formulas || rangeData.formulas.length === 0) {
 			return;
 		}
 
-		// Extract numeric values with their positions
-		let numericData = [];
-		let values = rangeData.values;
+		let formulaData = rangeData.formulas;
+		let formulaValues = formulaData.map(function(item) { return item.cellValue; });
 		
-		// Helper function to check if a value is a valid number
-		function isValidNumber(value) {
-			if (value == null || value === '') {
-				return false;
-			}
-			let numValue = parseFloat(value);
-			return !isNaN(numValue) && isFinite(numValue) ? numValue : false;
-		}
-		
-		if (Array.isArray(values)) {
-			for (let r = 0; r < values.length; r++) {
-				let row = values[r];
-				if (Array.isArray(row)) {
-					for (let c = 0; c < row.length; c++) {
-						let cell = row[c];
-						let numValue = isValidNumber(cell);
-						if (numValue !== false) {
-							numericData.push({row: r, col: c, value: numValue});
-						}
-					}
-				} else {
-					let numValue = isValidNumber(row);
-					if (numValue !== false) {
-						numericData.push({row: r, col: 0, value: numValue});
-					}
-				}
-			}
-		} else {
-			let numValue = isValidNumber(values);
-			if (numValue !== false) {
-				numericData.push({row: 0, col: 0, value: numValue});
-			}
-		}
-
-		if (numericData.length === 0) {
-			return; // No numeric data to analyze
-		}
-
-		let dataValues = numericData.map(function(item) { return item.value; });
-		
-		let argPrompt = [
-			"You are a statistical data analyst.",
-			"Input is numeric array: [" + dataValues.join(',') + "]",
-			"Task: Find statistical outliers (anomalies) in the data.",
-			"Rules:",
-			"1. Use IQR (Interquartile Range) method for outlier detection:",
-			"   a) Calculate Q1 (25th percentile) and Q3 (75th percentile)",
-			"   b) Calculate IQR = Q3 - Q1",
-			"   c) Define outliers as values < Q1 - 1.5*IQR or > Q3 + 1.5*IQR",
-			"2. Alternative method: Z-score analysis where |Z| > 2.5 indicates outlier",
-			"3. Be conservative - only mark clear statistical outliers to avoid false positives",
-			"4. If dataset has less than 4 values, return empty array (insufficient data)",
-			"5. Ignore extreme outliers that are obviously data entry errors vs. statistical anomalies",
-			"6. The answer MUST be a valid JSON array of indices (0-based positions in input array)",
-			"7. Format: [0,2,5] - indices of outlier positions in the input array",
-			"8. If no outliers found, return empty array: []",
-			"9. No extra text, explanations, or formatting - ONLY the JSON array",
-			"10. Example responses:",
-			"    - Input [1,2,3,100]: return [3]",
-			"    - Input [1,2,3,4,5]: return []",
-			"    - Input [10,10,10,50,10]: return [3]",
-			"Data to analyze: [" + dataValues.join(',') + "]"
-		].join('\n');
+		let argPrompt = "Fix formulas with errors in this array: [" + formulaValues.join(',') + "]\n\n" +
+			"Return ONLY a JSON array of fixed formulas.\n" +
+			"Fix common errors: #DIV/0! (use IF), #REF! (fix references), #NAME? (fix typos), #VALUE! (fix types), #N/A (use IFERROR)\n" +
+			"If formula has no errors, return it unchanged.\n" +
+			"Example: input [=A1/B1,=SUM(A:A)] return [=IF(B1<>0,A1/B1,0),=SUM(A:A)]\n" +
+			"CRITICAL: Response must be ONLY the JSON array, nothing else.\n" +
+			"Invalid data formats are not allowed - must be valid JSON array format.\n" +
+			"No text, no explanations, no additional formatting - ONLY [\"=formula1\",\"=formula2\"] format:";
 
 		let requestEngine = AI.Request.create(AI.ActionType.Chat);
 		if (!requestEngine)
@@ -5248,61 +5676,170 @@ HELPERS.cell.push((function(){
 
 		if (aiResult) {
 			try {
-				let anomalies = JSON.parse(aiResult.trim());
-				if (Array.isArray(anomalies) && anomalies.length > 0) {
-					Asc.scope.anomalies = [];
-					Asc.scope.numericData = numericData;
+				let fixedFormulas = JSON.parse(aiResult.trim());
+				if (Array.isArray(fixedFormulas) && fixedFormulas.length > 0) {
+					Asc.scope.fixedFormulas = fixedFormulas;
+					Asc.scope.formulaData = formulaData;
+					Asc.scope.rangeData = rangeData;
 					
-					for (let i = 0; i < anomalies.length; i++) {
-						let dataIndex = anomalies[i];
-						if (typeof dataIndex === 'number' && dataIndex >= 0 && dataIndex < Asc.scope.numericData.length) {
-							Asc.scope.anomalies.push({
-								row: Asc.scope.numericData[dataIndex].row,
-								col: Asc.scope.numericData[dataIndex].col
-							});
-						}
-					}
-					
-					if (Asc.scope.anomalies.length > 0) {
-						Asc.scope.rangeData = rangeData;
-
-						await Asc.Editor.callCommand(function(){
-							let ws = Api.GetActiveSheet();
-							let highlightColor;
+					await Asc.Editor.callCommand(function(){
+						let ws = Api.GetActiveSheet();
+						
+						for (let i = 0; i < Asc.scope.fixedFormulas.length && i < Asc.scope.formulaData.length; i++) {
+							let fixedFormula = Asc.scope.fixedFormulas[i];
+							let originalFormula = Asc.scope.formulaData[i];
 							
-							// Handle different color formats
-							if (Asc.scope.highlightColor.startsWith('#')) {
-								// Hex color
-								let hex = Asc.scope.highlightColor.substring(1);
-								let r = parseInt(hex.substring(0, 2), 16);
-								let g = parseInt(hex.substring(2, 4), 16);
-								let b = parseInt(hex.substring(4, 6), 16);
-								highlightColor = Api.CreateColorFromRGB(r, g, b);
-							} else {
-								// Named color
-								highlightColor = Api.CreateColorByName(Asc.scope.highlightColor);
-							}
-
-							for (let i = 0; i < Asc.scope.anomalies.length; i++) {
-								let anomaly = Asc.scope.anomalies[i];
-								let targetRow = Asc.scope.rangeData.startRow + anomaly.row;
-								let targetCol = Asc.scope.rangeData.startCol + anomaly.col;
+							if (fixedFormula && originalFormula && typeof fixedFormula === 'string') {
+								let targetRow = Asc.scope.rangeData.startRow + originalFormula.row;
+								let targetCol = Asc.scope.rangeData.startCol + originalFormula.col;
 								
 								let cell = ws.GetCells(targetRow, targetCol);
 								if (cell) {
-									cell.SetFillColor(highlightColor);
+									cell.SetValue(fixedFormula);
 								}
 							}
-						});
-					}
+						}
+					});
 				}
 			} catch (error) {
-				// Handle JSON parsing errors or other issues
-				console.error("Error parsing AI result:", error);
+				console.error("Error parsing formula fix result:", error);
 			}
 		}
 
 		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "explainFormula",
+		"description": "Analyzes and explains Excel formulas in natural language. Uses AI to provide detailed explanations of formula logic, function parameters, nested operations, and expected results. The explanation is added as a cell comment to the cell containing the formula. Particularly useful for understanding complex formulas with multiple nested functions or unfamiliar Excel functions. Keeps explanations concise (under 1024 characters recommended) while covering all essential information.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range containing formula to explain (e.g., 'A1'). If omitted, uses active/selected cell."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Explain formula in active cell",
+				"arguments": {}
+			},
+			{
+				"prompt": "Explain formula in specific cell A1",
+				"arguments": { "range": "A1" }
+			},
+			{
+				"prompt": "Explain formula in cell B5",
+				"arguments": { "range": "B5" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+
+		let formulaData = await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let _range;
+
+			if (!Asc.scope.range) {
+				_range = Api.GetSelection();
+			} else {
+				_range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!_range || !_range.GetCells(1, 1)) {
+				return null;
+			}
+
+			let cell = _range.GetCells(1, 1);
+			let formula = cell.GetFormula();
+			let cellAddress = cell.GetAddress();
+			
+			return {
+				formula: formula,
+				address: cellAddress,
+				hasFormula: formula && formula.toString().startsWith('=')
+			};
+		});
+
+		if (!formulaData || !formulaData.hasFormula) {
+			return; // No formula to explain
+		}
+
+		let argPrompt = "Explain the following Excel formula in detail:\n\n" +
+			"Formula: " + formulaData.formula + "\n" +
+			"Cell: " + formulaData.address + "\n\n" +
+			"IMPORTANT RULES:\n" +
+			"1. Provide a clear, detailed explanation of what the formula does.\n" +
+			"2. Break down each part of the formula if it's complex.\n" +
+			"3. Explain the functions used and their parameters.\n" +
+			"4. Describe the expected result or output.\n" +
+			"5. Use simple, understandable language.\n" +
+			"6. If there are nested functions, explain the order of operations.\n" +
+			"7. Mention any potential issues or common mistakes.\n" +
+			"8. Keep the explanation concise but comprehensive.\n" +
+			"9. Be brief and avoid unnecessary verbose explanations.\n" +
+			"10. Get straight to the point without filler text.\n" +
+			"11. Focus only on essential information.\n" +
+			"12. Keep response length under 1024 characters (recommended), maximum 32767 characters.\n" +
+			"13. Prioritize the most important information if length constraint requires cuts.\n\n" +
+			"Please provide a detailed but concise explanation of this formula.";
+
+		let requestEngine = AI.Request.create(AI.ActionType.Chat);
+		if (!requestEngine)
+			return;
+
+		let isSendedEndLongAction = false;
+		async function checkEndAction() {
+			if (!isSendedEndLongAction) {
+				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+				isSendedEndLongAction = true;
+			}
+		}
+
+		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		let explanation = await requestEngine.chatRequest(argPrompt, false, async function(data) {
+			if (!data)
+				return;
+			await checkEndAction();
+		});
+
+		await checkEndAction();
+		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+
+		// Add comment with explanation to the cell
+		if (explanation) {
+			Asc.scope.explanation = explanation;
+			await Asc.Editor.callCommand(function(){
+				let ws = Api.GetActiveSheet();
+				let _range;
+
+				if (!Asc.scope.range) {
+					_range = Api.GetSelection();
+				} else {
+					_range = ws.GetRange(Asc.scope.range);
+				}
+
+				if (_range) {
+					let cell = _range.GetCells(1, 1);
+					if (cell) {
+						// Create comment with formula explanation
+						let commentText = "Formula Explanation:\n\n" + Asc.scope.explanation;
+						cell.AddComment(commentText, "AI Assistant");
+					}
+				}
+			});
+		}
 	};
 
 	return func;
@@ -5501,6 +6038,656 @@ HELPERS.cell.push((function(){
 		}
 
 		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "addConditionalFormatting",
+		"description": "Use this function when user asks for conditional formatting without specifying the exact type. This applies the most commonly used conditional formatting rule - highlighting cells based on values greater than a threshold with color background. Perfect for general requests like 'add conditional formatting', 'highlight important data', or 'format cells conditionally'.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to apply formatting (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"threshold": {
+					"type": "number",
+					"description": "Value threshold for highlighting (default: calculated from data)."
+				},
+				"fillColor": {
+					"type": "object",
+					"description": "Background color {r: 255, g: 200, b: 200} (default: light red).",
+					"properties": {
+						"r": { "type": "number" },
+						"g": { "type": "number" },
+						"b": { "type": "number" }
+					}
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Apply default conditional formatting to current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Apply conditional formatting with custom threshold",
+				"arguments": { "threshold": 100 }
+			},
+			{
+				"prompt": "When user asks to add conditional formatting without specifics",
+				"arguments": { "range": "A1:D10" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.threshold = params.threshold;
+		Asc.scope.fillColor = params.fillColor || {r: 255, g: 200, b: 200};
+
+		await Asc.Editor.callCommand(function() {
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection;
+			}
+			
+			let threshold = Asc.scope.threshold;
+			if (!threshold) {
+				let values = range.GetValue2();
+				let numericValues = [];
+				for (let i = 0; i < values.length; i++) {
+					for (let j = 0; j < values[i].length; j++) {
+						let val = parseFloat(values[i][j]);
+						if (!isNaN(val)) {
+							numericValues.push(val);
+						}
+					}
+				}
+				if (numericValues.length > 0) {
+					numericValues.sort((a, b) => a - b);
+					threshold = numericValues[Math.floor(numericValues.length * 0.7)];
+				} else {
+					threshold = 0;
+				}
+			}
+			
+			let formatConditions = range.GetFormatConditions();
+			let condition = formatConditions.Add("xlCellValue", "xlGreater", threshold);
+			
+			if (condition) {
+				let color = Asc.scope.fillColor ? 
+					Api.CreateColorFromRGB(Asc.scope.fillColor.r, Asc.scope.fillColor.g, Asc.scope.fillColor.b) :
+					Api.CreateColorFromRGB(255, 200, 200);
+				condition.SetFillColor(color);
+			}
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "fillMissingData",
+		"description": "Intelligently fills missing or empty cells in a data range using appropriate statistical methods. For numeric columns, fills with median values. For categorical columns, uses the most frequent value. For time series data, applies forward fill (uses the previous non-empty value). Automatically detects column types and highlights filled cells with light blue color for easy identification.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to fill missing data (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Fill missing data in the current selection with appropriate values based on column types",
+				"arguments": {}
+			},
+			{
+				"prompt": "Fill missing data in range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "Fill empty cells in active range using smart algorithms (median for numeric, most frequent for categorical, forward fill for time series)",
+				"arguments": {}
+			},
+			{
+				"prompt": "Fill missing values, fill empty cells, complete data, or handle null values",
+				"arguments": {}
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		
+		let rangeData = await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection;
+			}
+			return [range.Address, range.GetValue2()];
+		});
+
+		//make csv from source data
+		let address = rangeData[0];
+		let data = rangeData[1];
+		let csv = data.map(function(item){
+			return item.map(function(value) {
+				if (value == null) return '';
+				const str = String(value);
+				if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+					return '"' + str.replace(/"/g, '""') + '"';
+				}
+				return str;
+			}).join(',');
+		}).join('\n');
+
+		//make ai request for missing data analysis
+		const argPrompt = [
+			"You are a data analyst.",
+			"Input is CSV (comma-separated, ','). Empty cells represent missing values to be filled.",
+			"Rules:",
+			"1. NUMERIC columns: Fill missing values with MEDIAN of non-empty values.",
+			"2. CATEGORICAL columns: Fill missing values with MOST FREQUENT value.", 
+			"3. TIME_SERIES columns: Fill missing values with FORWARD FILL (previous non-empty value).",
+			"",
+			"Output format: JSON array with exact row/column coordinates (1-based indexing):",
+			"[",
+			"  {\"row\": 2, \"column\": 1, \"new_value\": 25.5},",
+			"  {\"row\": 3, \"column\": 2, \"new_value\": \"Category A\"},",
+			"  {\"row\": 4, \"column\": 3, \"new_value\": \"FORWARD_FILL\"}",
+			"]",
+			"- Use \"FORWARD_FILL\" as new_value for time series columns",
+			"- Row and column numbers are 1-based (first row = 1, first column = 1)",
+			"- Only include cells that need to be filled",
+			"- The answer MUST be valid JSON array",
+			"- No extra text, spaces, or newlines outside JSON",
+			"",
+			"CSV:",
+			csv
+		].join('\n');
+
+		let requestEngine = AI.Request.create(AI.ActionType.Chat);
+		if (!requestEngine)
+			return;
+
+		let isSendedEndLongAction = false;
+		async function checkEndAction() {
+			if (!isSendedEndLongAction) {
+				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+				isSendedEndLongAction = true;
+			}
+		}
+
+		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
+			if (!data)
+				return;
+		});
+		await checkEndAction();
+		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+
+		//Parse AI result
+		function parseAIResult(result) {
+			try {
+				const jsonMatch = result.match(/\[[\s\S]*\]/);
+				if (!jsonMatch) return null;
+				return JSON.parse(jsonMatch[0]);
+			} catch (e) {
+				return null;
+			}
+		}
+
+		Asc.scope.address = address;
+		Asc.scope.fillData = parseAIResult(aiResult);
+		Asc.scope.originalData = data;
+
+		if (Asc.scope.fillData) {
+			await Asc.Editor.callCommand(function() {
+				let ws = Api.GetActiveSheet();
+				let range = ws.GetRange(Asc.scope.address);
+				let fillData = Asc.scope.fillData;
+				let originalData = Asc.scope.originalData;
+				
+				let highlightColor = Api.CreateColorFromRGB(173, 216, 230);
+				
+				for (let i = 0; i < fillData.length; i++) {
+					let fillItem = fillData[i];
+					let rowNum = fillItem.row;
+					let colNum = fillItem.column;
+					let newValue = fillItem.new_value;
+					
+					if (newValue === "FORWARD_FILL") {
+						let lastValue = null;
+						for (let searchRow = rowNum - 1; searchRow >= 1; searchRow--) {
+							let searchValue = originalData[searchRow - 1][colNum - 1];
+							if (searchValue != null && searchValue !== '') {
+								lastValue = searchValue;
+								break;
+							}
+						}
+						if (lastValue != null) {
+							let cell = range.GetCells(rowNum, colNum);
+							cell.Value = lastValue;
+							cell.FillColor = highlightColor;
+						}
+					} else {
+						let cell = range.GetCells(rowNum, colNum);
+						cell.Value = newValue;
+						cell.FillColor = highlightColor;
+					}
+				}
+			});
+		}
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "setAutoFilter",
+		"description": "Applies autofilter to a data range, enabling dropdown filters on column headers. Supports filtering by column number or column name (with fuzzy matching). Offers multiple filter types: value comparison operators (greater than, less than, equals), multiple value selection, top/bottom N items or percentage, color-based filtering (cell background or font color), and dynamic filters. Can be used to filter active selection or specific ranges.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to apply autofilter (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"field": {
+					"type": "number",
+					"description": "Field number for filtering (starting from 1, left-most field)."
+				},
+				"fieldName": {
+					"type": "string",
+					"description": "Column name/header for filtering (e.g., 'Name', 'Age'). Will automatically find the column number."
+				},
+				"criteria1": {
+					"type": ["string", "array", "object"],
+					"description": "Filter criteria - string for operators (e.g., '>10'), array for multiple values (e.g., [1,2,3]), ApiColor object for color filters, or dynamic filter constant."
+				},
+				"operator": {
+					"type": "string",
+					"description": "Filter operator.",
+					"enum": ["xlAnd", "xlOr", "xlFilterValues", "xlTop10Items", "xlTop10Percent", "xlBottom10Items", "xlBottom10Percent", "xlFilterCellColor", "xlFilterFontColor", "xlFilterDynamic"]
+				},
+				"criteria2": {
+					"type": "string",
+					"description": "Second criteria for compound filters (used with xlAnd/xlOr operators)."
+				},
+				"visibleDropDown": {
+					"type": "boolean",
+					"description": "Show/hide filter dropdown arrow (default: true)."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Apply autofilter to range A1:D10",
+				"arguments": { "range": "A1:D10" }
+			},
+			{
+				"prompt": "Apply autofilter to active/selected range",
+				"arguments": {}
+			},
+			{
+				"prompt": "Filter column 1 for values greater than 10",
+				"arguments": { "range": "A1:D10", "field": 1, "criteria1": ">10" }
+			},
+			{
+				"prompt": "Filter by column name 'Name' for specific values",
+				"arguments": { "range": "A1:D10", "fieldName": "Name", "criteria1": ["John", "Jane"], "operator": "xlFilterValues" }
+			},
+			{
+				"prompt": "Filter by column header 'Age' for values greater than 18",
+				"arguments": { "range": "A1:D10", "fieldName": "Age", "criteria1": ">18" }
+			},
+			{
+				"prompt": "Filter column 2 for specific values [2,5,8]",
+				"arguments": { "range": "A1:D10", "field": 2, "criteria1": [2, 5, 8], "operator": "xlFilterValues" }
+			},
+			{
+				"prompt": "Filter column 1 for top 10 items",
+				"arguments": { "range": "A1:D10", "field": 1, "criteria1": "10", "operator": "xlTop10Items" }
+			},
+			{
+				"prompt": "Create compound filter (>5 OR <2)",
+				"arguments": { "range": "A1:D10", "field": 1, "criteria1": ">5", "operator": "xlOr", "criteria2": "<2" }
+			},
+			{
+				"prompt": "Filter by cell background color (yellow)",
+				"arguments": { "range": "A1:D10", "field": 1, "criteria1": { "r": 255, "g": 255, "b": 0 }, "operator": "xlFilterCellColor" }
+			},
+			{
+				"prompt": "Filter by font color (red)",
+				"arguments": { "range": "A1:D10", "field": 1, "criteria1": { "r": 255, "g": 0, "b": 0 }, "operator": "xlFilterFontColor" }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.field = params.field;
+		Asc.scope.fieldName = params.fieldName;
+		Asc.scope.criteria1 = params.criteria1;
+		Asc.scope.operator = params.operator;
+		Asc.scope.criteria2 = params.criteria2;
+		Asc.scope.visibleDropDown = params.visibleDropDown;
+
+		if (Asc.scope.fieldName && !Asc.scope.field) {
+			let insertRes = await Asc.Editor.callCommand(function(){
+				let ws = Api.GetActiveSheet();
+				let _range;
+
+				if (!Asc.scope.range) {
+					_range = Api.GetSelection();
+				} else {
+					_range = ws.GetRange(Asc.scope.range);
+				}
+
+				return _range.GetValue2();
+			});
+
+			let csv = insertRes.map(function(item){
+				return item.map(function(value) {
+					if (value == null) return '';
+					const str = String(value);
+					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
+						return '"' + str.replace(/"/g, '""') + '"';
+					}
+					return str;
+				}).join(',');
+			}).join('\n');
+
+			let argPromt = "Find column index for header '" + Asc.scope.fieldName + "' in the following CSV data.\n\n" +
+			"IMPORTANT RULES:\n" +
+			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
+			"2. Find EXACT match first. If exact match exists, return its index.\n" +
+			"3. If no exact match, then look for partial matches.\n" +
+			"4. Case-insensitive comparison allowed.\n" +
+			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
+			"6. Count positions carefully: each comma marks a column boundary.\n" +
+			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
+			"8. If the header is in the 3rd column, return only: 3\n\n" +
+			"CSV data:\n" + csv;
+
+			let requestEngine = AI.Request.create(AI.ActionType.Chat);
+			if (!requestEngine)
+				return;
+
+			let isSendedEndLongAction = false;
+			async function checkEndAction() {
+				if (!isSendedEndLongAction) {
+					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+					isSendedEndLongAction = true
+				}
+			}
+
+			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
+			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+
+			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
+				if (!data)
+					return;
+				await checkEndAction();
+			});
+
+			await checkEndAction();
+			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
+			Asc.scope.field = result;
+		}
+
+		await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let range;
+
+			if (!Asc.scope.range) {
+				range = Api.GetSelection();
+			} else {
+				range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!range) {
+				return;
+			}
+
+			let field = Asc.scope.field;
+			if (!field) {
+				field = 1;
+			}
+
+			let criteria1 = Asc.scope.criteria1;
+			if (Asc.scope.operator === "xlFilterCellColor" || Asc.scope.operator === "xlFilterFontColor") {
+				if (criteria1 && typeof criteria1 === 'object' && criteria1.r !== undefined && criteria1.g !== undefined && criteria1.b !== undefined) {
+					criteria1 = Api.CreateColorFromRGB(criteria1.r, criteria1.g, criteria1.b);
+				}
+			}
+
+			range.SetAutoFilter(
+				field,
+				criteria1,
+				Asc.scope.operator,
+				Asc.scope.criteria2,
+				Asc.scope.visibleDropDown
+			);
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "addColorScale",
+		"description": "Applies color scale conditional formatting to visualize data with gradient colors. Creates a heat map effect where values are represented by colors ranging from one color (minimum values) to another color (maximum values). Use 2-color scale for simple comparisons or 3-color scale for more detailed data visualization.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"range": {
+					"type": "string",
+					"description": "Cell range to apply color scale (e.g., 'A1:D10'). If omitted, uses active/selected range."
+				},
+				"colorScaleType": {
+					"type": "number",
+					"description": "Color scale type - 2 for two-color scale, 3 for three-color scale (default: 3).",
+					"enum": [2, 3],
+					"default": 3
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Apply 3-color scale conditional formatting to current selection",
+				"arguments": {}
+			},
+			{
+				"prompt": "Apply 2-color scale conditional formatting to range A1:D10",
+				"arguments": { "range": "A1:D10", "colorScaleType": 2 }
+			},
+			{
+				"prompt": "When user asks to add color scale, color gradient, heat map formatting",
+				"arguments": { "range": "A1:D10", "colorScaleType": 3 }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.range = params.range;
+		Asc.scope.colorScaleType = params.colorScaleType || 3;
+
+		await Asc.Editor.callCommand(function() {
+			let ws = Api.GetActiveSheet();
+			let range;
+			if (Asc.scope.range) {
+				range = ws.GetRange(Asc.scope.range);
+			} else {
+				range = ws.Selection;
+			}
+			
+			let formatConditions = range.GetFormatConditions();
+			formatConditions.AddColorScale(Asc.scope.colorScaleType);
+		});
+	};
+
+	return func;
+})());
+HELPERS.cell.push((function(){
+
+	let func = new RegisteredFunction({
+		"name": "changeTextStyle",
+		"description": "Applies text formatting styles to cells in the specified range or current selection. Supports comprehensive text styling options including bold, italic, underline (multiple types), strikeout, font family, font size, and font color. Colors can be specified using hex codes (#FF0000) or preset color names (red, blue, etc.). All formatting parameters are optional - only specified properties will be changed, leaving others unchanged.",
+		"parameters": {
+			"type": "object",
+			"properties": {
+				"bold": {
+					"type": "boolean",
+					"description": "Whether to make the text bold (true to enable, false to disable)."
+				},
+				"italic": {
+					"type": "boolean",
+					"description": "Whether to make the text italic (true to enable, false to disable)."
+				},
+				"underline": {
+					"type": "string",
+					"description": "Underline type to apply.",
+					"enum": ["none", "single", "singleAccounting", "double", "doubleAccounting"]
+				},
+				"strikeout": {
+					"type": "boolean",
+					"description": "Whether to strike through the text (true to enable, false to disable)."
+				},
+				"fontSize": {
+					"type": "number",
+					"description": "Font size to apply to the selected cell(s).",
+					"minimum": 1,
+					"maximum": 200
+				},
+				"fontName": {
+					"type": "string",
+					"description": "Font family name to apply to the selected cell(s)."
+				},
+				"fontColor": {
+					"type": "string",
+					"description": "Font color (hex color like '#FF0000' or preset color name like 'red')."
+				},
+				"range": {
+					"type": "string",
+					"description": "Cell range to format (e.g., 'A1:B5'). If omitted, uses current selection."
+				}
+			},
+			"required": []
+		},
+		"examples": [
+			{
+				"prompt": "Make selected cells bold and italic",
+				"arguments": { "bold": true, "italic": true }
+			},
+			{
+				"prompt": "Underline selected cells",
+				"arguments": { "underline": "single" }
+			},
+			{
+				"prompt": "Strike out selected cells",
+				"arguments": { "strikeout": true }
+			},
+			{
+				"prompt": "Set font size to 18",
+				"arguments": { "fontSize": 18 }
+			},
+			{
+				"prompt": "Change font to Arial and make it red",
+				"arguments": { "fontName": "Arial", "fontColor": "red" }
+			},
+			{
+				"prompt": "Format range A1:C3 as bold",
+				"arguments": { "range": "A1:C3", "bold": true }
+			},
+			{
+				"prompt": "Remove italics from selected cells",
+				"arguments": { "italic": false }
+			}
+		]
+	});
+
+	func.call = async function(params) {
+		Asc.scope.bold = params.bold;
+		Asc.scope.italic = params.italic;
+		Asc.scope.underline = params.underline;
+		Asc.scope.strikeout = params.strikeout;
+		Asc.scope.fontSize = params.fontSize;
+		Asc.scope.fontName = params.fontName;
+		Asc.scope.fontColor = params.fontColor;
+		Asc.scope.range = params.range;
+
+		await Asc.Editor.callCommand(function(){
+			let ws = Api.GetActiveSheet();
+			let _range;
+
+			if (!Asc.scope.range) {
+				_range = Api.GetSelection();
+			} else {
+				_range = ws.GetRange(Asc.scope.range);
+			}
+
+			if (!_range)
+				return;
+
+			if (undefined !== Asc.scope.bold)
+				_range.SetBold(Asc.scope.bold);
+
+			if (undefined !== Asc.scope.italic)
+				_range.SetItalic(Asc.scope.italic);
+
+			if (undefined !== Asc.scope.underline)
+				_range.SetUnderline(Asc.scope.underline);
+
+			if (undefined !== Asc.scope.strikeout)
+				_range.SetStrikeout(Asc.scope.strikeout);
+
+			if (undefined !== Asc.scope.fontSize)
+				_range.SetFontSize(Asc.scope.fontSize);
+
+			if (undefined !== Asc.scope.fontName)
+				_range.SetFontName(Asc.scope.fontName);
+
+			if (undefined !== Asc.scope.fontColor) {
+				// Handle different color formats
+				let color;
+				if (Asc.scope.fontColor.startsWith('#')) {
+					// Hex color
+					color = Api.CreateColorFromRGB(
+						parseInt(Asc.scope.fontColor.substring(1, 3), 16),
+						parseInt(Asc.scope.fontColor.substring(3, 5), 16),
+						parseInt(Asc.scope.fontColor.substring(5, 7), 16)
+					);
+				} else {
+					// Preset color name
+					color = Api.CreateColorByName(Asc.scope.fontColor);
+				}
+				if (color)
+					_range.SetFontColor(color);
+			}
+		});
 	};
 
 	return func;
@@ -5771,865 +6958,6 @@ HELPERS.cell.push((function(){
 				}
 			});
 		}
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "setAutoFilter",
-		"description": "Applies autofilter to a data range, enabling dropdown filters on column headers. Supports filtering by column number or column name (with fuzzy matching). Offers multiple filter types: value comparison operators (greater than, less than, equals), multiple value selection, top/bottom N items or percentage, color-based filtering (cell background or font color), and dynamic filters. Can be used to filter active selection or specific ranges.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to apply autofilter (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"field": {
-					"type": "number",
-					"description": "Field number for filtering (starting from 1, left-most field)."
-				},
-				"fieldName": {
-					"type": "string",
-					"description": "Column name/header for filtering (e.g., 'Name', 'Age'). Will automatically find the column number."
-				},
-				"criteria1": {
-					"type": ["string", "array", "object"],
-					"description": "Filter criteria - string for operators (e.g., '>10'), array for multiple values (e.g., [1,2,3]), ApiColor object for color filters, or dynamic filter constant."
-				},
-				"operator": {
-					"type": "string",
-					"description": "Filter operator.",
-					"enum": ["xlAnd", "xlOr", "xlFilterValues", "xlTop10Items", "xlTop10Percent", "xlBottom10Items", "xlBottom10Percent", "xlFilterCellColor", "xlFilterFontColor", "xlFilterDynamic"]
-				},
-				"criteria2": {
-					"type": "string",
-					"description": "Second criteria for compound filters (used with xlAnd/xlOr operators)."
-				},
-				"visibleDropDown": {
-					"type": "boolean",
-					"description": "Show/hide filter dropdown arrow (default: true)."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Apply autofilter to range A1:D10",
-				"arguments": { "range": "A1:D10" }
-			},
-			{
-				"prompt": "Apply autofilter to active/selected range",
-				"arguments": {}
-			},
-			{
-				"prompt": "Filter column 1 for values greater than 10",
-				"arguments": { "range": "A1:D10", "field": 1, "criteria1": ">10" }
-			},
-			{
-				"prompt": "Filter by column name 'Name' for specific values",
-				"arguments": { "range": "A1:D10", "fieldName": "Name", "criteria1": ["John", "Jane"], "operator": "xlFilterValues" }
-			},
-			{
-				"prompt": "Filter by column header 'Age' for values greater than 18",
-				"arguments": { "range": "A1:D10", "fieldName": "Age", "criteria1": ">18" }
-			},
-			{
-				"prompt": "Filter column 2 for specific values [2,5,8]",
-				"arguments": { "range": "A1:D10", "field": 2, "criteria1": [2, 5, 8], "operator": "xlFilterValues" }
-			},
-			{
-				"prompt": "Filter column 1 for top 10 items",
-				"arguments": { "range": "A1:D10", "field": 1, "criteria1": "10", "operator": "xlTop10Items" }
-			},
-			{
-				"prompt": "Create compound filter (>5 OR <2)",
-				"arguments": { "range": "A1:D10", "field": 1, "criteria1": ">5", "operator": "xlOr", "criteria2": "<2" }
-			},
-			{
-				"prompt": "Filter by cell background color (yellow)",
-				"arguments": { "range": "A1:D10", "field": 1, "criteria1": { "r": 255, "g": 255, "b": 0 }, "operator": "xlFilterCellColor" }
-			},
-			{
-				"prompt": "Filter by font color (red)",
-				"arguments": { "range": "A1:D10", "field": 1, "criteria1": { "r": 255, "g": 0, "b": 0 }, "operator": "xlFilterFontColor" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.field = params.field;
-		Asc.scope.fieldName = params.fieldName;
-		Asc.scope.criteria1 = params.criteria1;
-		Asc.scope.operator = params.operator;
-		Asc.scope.criteria2 = params.criteria2;
-		Asc.scope.visibleDropDown = params.visibleDropDown;
-
-		if (Asc.scope.fieldName && !Asc.scope.field) {
-			let insertRes = await Asc.Editor.callCommand(function(){
-				let ws = Api.GetActiveSheet();
-				let _range;
-
-				if (!Asc.scope.range) {
-					_range = Api.GetSelection();
-				} else {
-					_range = ws.GetRange(Asc.scope.range);
-				}
-
-				return _range.GetValue2();
-			});
-
-			let csv = insertRes.map(function(item){
-				return item.map(function(value) {
-					if (value == null) return '';
-					const str = String(value);
-					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-						return '"' + str.replace(/"/g, '""') + '"';
-					}
-					return str;
-				}).join(',');
-			}).join('\n');
-
-			let argPromt = "Find column index for header '" + Asc.scope.fieldName + "' in the following CSV data.\n\n" +
-			"IMPORTANT RULES:\n" +
-			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
-			"2. Find EXACT match first. If exact match exists, return its index.\n" +
-			"3. If no exact match, then look for partial matches.\n" +
-			"4. Case-insensitive comparison allowed.\n" +
-			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
-			"6. Count positions carefully: each comma marks a column boundary.\n" +
-			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
-			"8. If the header is in the 3rd column, return only: 3\n\n" +
-			"CSV data:\n" + csv;
-
-			let requestEngine = AI.Request.create(AI.ActionType.Chat);
-			if (!requestEngine)
-				return;
-
-			let isSendedEndLongAction = false;
-			async function checkEndAction() {
-				if (!isSendedEndLongAction) {
-					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-					isSendedEndLongAction = true
-				}
-			}
-
-			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
-				if (!data)
-					return;
-				await checkEndAction();
-			});
-
-			await checkEndAction();
-			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-			Asc.scope.field = result;
-		}
-
-		await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let range;
-
-			if (!Asc.scope.range) {
-				range = Api.GetSelection();
-			} else {
-				range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!range) {
-				return;
-			}
-
-			let field = Asc.scope.field;
-			if (!field) {
-				field = 1;
-			}
-
-			let criteria1 = Asc.scope.criteria1;
-			if (Asc.scope.operator === "xlFilterCellColor" || Asc.scope.operator === "xlFilterFontColor") {
-				if (criteria1 && typeof criteria1 === 'object' && criteria1.r !== undefined && criteria1.g !== undefined && criteria1.b !== undefined) {
-					criteria1 = Api.CreateColorFromRGB(criteria1.r, criteria1.g, criteria1.b);
-				}
-			}
-
-			range.SetAutoFilter(
-				field,
-				criteria1,
-				Asc.scope.operator,
-				Asc.scope.criteria2,
-				Asc.scope.visibleDropDown
-			);
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "setMultiSort",
-		"description": "Sorts data by multiple columns (up to 3 levels). Use this when you need to sort by primary, secondary, and tertiary sort keys. Each level can have its own sort order.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to sort (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"key1": {
-					"type": ["string", "number"],
-					"description": "First sort field - cell reference, column index (1-based), or column name. If omitted, uses first column."
-				},
-				"sortOrder1": {
-					"type": "string",
-					"description": "Sort order for key1: 'xlAscending' or 'xlDescending'.",
-					"enum": ["xlAscending", "xlDescending"],
-					"default": "xlAscending"
-				},
-				"key2": {
-					"type": ["string", "number"],
-					"description": "Second sort field - cell reference, column index, or column name. If omitted, uses second column."
-				},
-				"sortOrder2": {
-					"type": "string",
-					"description": "Sort order for key2: 'xlAscending' or 'xlDescending'.",
-					"enum": ["xlAscending", "xlDescending"],
-					"default": "xlAscending"
-				},
-				"key3": {
-					"type": ["string", "number"],
-					"description": "Third sort field - cell reference, column index, or column name."
-				},
-				"sortOrder3": {
-					"type": "string",
-					"description": "Sort order for key3: 'xlAscending' or 'xlDescending'.",
-					"enum": ["xlAscending", "xlDescending"],
-					"default": "xlAscending"
-				},
-				"header": {
-					"type": "string",
-					"description": "Specifies if first row contains headers: 'xlYes' or 'xlNo'.",
-					"enum": ["xlYes", "xlNo"],
-					"default": "xlNo"
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Sort by two columns",
-				"arguments": {}
-			},
-			{
-				"prompt": "Sort by Name and Age",
-				"arguments": { "key1": "Name", "key2": "Age", "header": "xlYes" }
-			},
-			{
-				"prompt": "Sort first column ascending, second descending",
-				"arguments": { "sortOrder1": "xlAscending", "sortOrder2": "xlDescending" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.key1 = params.key1;
-		Asc.scope.sortOrder1 = params.sortOrder1 || "xlAscending";
-		Asc.scope.key2 = params.key2;
-		Asc.scope.sortOrder2 = params.sortOrder2 || "xlAscending";
-		Asc.scope.key3 = params.key3;
-		Asc.scope.sortOrder3 = params.sortOrder3 || "xlAscending";
-		Asc.scope.header = params.header || "xlNo";
-
-		async function findColumnByName(fieldName) {
-			if (!fieldName) return null;
-
-			let insertRes = await Asc.Editor.callCommand(function(){
-				let ws = Api.GetActiveSheet();
-				let _range;
-
-				if (!Asc.scope.range) {
-					_range = Api.GetSelection();
-				} else {
-					_range = ws.GetRange(Asc.scope.range);
-				}
-
-				return _range.GetValue2();
-			});
-
-			let csv = insertRes.map(function(item){
-				return item.map(function(value) {
-					if (value == null) return '';
-					const str = String(value);
-					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-						return '"' + str.replace(/"/g, '""') + '"';
-					}
-					return str;
-				}).join(',');
-			}).join('\n');
-
-			let argPromt = "Find column index for header '" + fieldName + "' in the following CSV data.\n\n" +
-			"IMPORTANT RULES:\n" +
-			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
-			"2. Find EXACT match first. If exact match exists, return its index.\n" +
-			"3. If no exact match, then look for partial matches.\n" +
-			"4. Case-insensitive comparison allowed.\n" +
-			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
-			"6. Count positions carefully: each comma marks a column boundary.\n" +
-			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
-			"8. If the header is in the 3rd column, return only: 3\n\n" +
-			"CSV data:\n" + csv;
-			
-			let requestEngine = AI.Request.create(AI.ActionType.Chat);
-			if (!requestEngine)
-				return null;
-
-			let isSendedEndLongAction = false;
-			async function checkEndAction() {
-				if (!isSendedEndLongAction) {
-					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-					isSendedEndLongAction = true
-				}
-			}
-
-			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
-				if (!data)
-					return;
-				await checkEndAction();
-			});
-
-			await checkEndAction();
-			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-			return result - 0;
-		}
-
-		if (Asc.scope.key1 && typeof Asc.scope.key1 === 'string' && isNaN(Asc.scope.key1) && !Asc.scope.key1.match(/^[A-Z]+\d+$/i)) {
-			Asc.scope.key1 = await findColumnByName(Asc.scope.key1);
-		}
-		if (Asc.scope.key2 && typeof Asc.scope.key2 === 'string' && isNaN(Asc.scope.key2) && !Asc.scope.key2.match(/^[A-Z]+\d+$/i)) {
-			Asc.scope.key2 = await findColumnByName(Asc.scope.key2);
-		}
-		if (Asc.scope.key3 && typeof Asc.scope.key3 === 'string' && isNaN(Asc.scope.key3) && !Asc.scope.key3.match(/^[A-Z]+\d+$/i)) {
-			Asc.scope.key3 = await findColumnByName(Asc.scope.key3);
-		}
-
-		await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let range;
-
-			if (!Asc.scope.range) {
-				range = Api.GetSelection();
-			} else {
-				range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!range) {
-				return;
-			}
-
-			if (Asc.scope.header === "xlYes") {
-				range.SetOffset(1, 0);
-			}
-
-			let key1 = null, key2 = null, key3 = null;
-
-			function adjustSortKey(keyValue, defaultColumnOffset) {
-				if (!keyValue) {
-					if (defaultColumnOffset !== undefined) {
-						return ws.GetCells(range.GetRow(), range.GetCol() + defaultColumnOffset);
-					}
-					return null;
-				}
-
-				if (typeof keyValue === 'number') {
-					return ws.GetCells(range.GetRow(), range.GetCol() + keyValue - 1);
-				} else if (typeof keyValue === 'string') {
-					try {
-						let keyRange = ws.GetRange(keyValue);
-						return keyRange || keyValue;
-					} catch {
-						return keyValue;
-					}
-				} else {
-					return keyValue;
-				}
-			}
-
-			key1 = adjustSortKey(Asc.scope.key1, 0);
-			key2 = adjustSortKey(Asc.scope.key2, 1);
-			key3 = adjustSortKey(Asc.scope.key3);
-
-			range.SetSort(
-				key1,
-				Asc.scope.sortOrder1,
-				key2,
-				Asc.scope.sortOrder2,
-				key3,
-				Asc.scope.sortOrder3,
-				Asc.scope.header
-			);
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "setSort",
-		"description": "Sorts data in a range by a single column in ascending or descending order.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to sort (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				},
-				"key1": {
-					"type": ["string", "number"],
-					"description": "Sort field - cell reference (e.g., 'A1'), column index (1-based), or column name. If omitted, uses first column."
-				},
-				"sortOrder1": {
-					"type": "string",
-					"description": "Sort order: 'xlAscending' or 'xlDescending'.",
-					"enum": ["xlAscending", "xlDescending"],
-					"default": "xlAscending"
-				},
-				"header": {
-					"type": "string",
-					"description": "Specifies if first row contains headers: 'xlYes' or 'xlNo'.",
-					"enum": ["xlYes", "xlNo"],
-					"default": "xlNo"
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Sort range A1:D10 by first column in ascending order",
-				"arguments": { "range": "A1:D10", "sortOrder1": "xlAscending" }
-			},
-			{
-				"prompt": "Sort active range in descending order",
-				"arguments": { "sortOrder1": "xlDescending" }
-			},
-			{
-				"prompt": "Sort by column name 'Name' with headers",
-				"arguments": { "key1": "Name", "header": "xlYes" }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		Asc.scope.key1 = params.key1;
-		Asc.scope.sortOrder1 = params.sortOrder1 || "xlAscending";
-		Asc.scope.header = params.header || "xlNo";
-
-		async function findColumnByName(fieldName) {
-			if (!fieldName) return null;
-
-			let insertRes = await Asc.Editor.callCommand(function(){
-				let ws = Api.GetActiveSheet();
-				let _range;
-
-				if (!Asc.scope.range) {
-					_range = Api.GetSelection();
-				} else {
-					_range = ws.GetRange(Asc.scope.range);
-				}
-
-				return _range.GetValue2();
-			});
-
-			let csv = insertRes.map(function(item){
-				return item.map(function(value) {
-					if (value == null) return '';
-					const str = String(value);
-					if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-						return '"' + str.replace(/"/g, '""') + '"';
-					}
-					return str;
-				}).join(',');
-			}).join('\n');
-
-			let argPromt = "Find column index for header '" + fieldName + "' in the following CSV data.\n\n" +
-			"IMPORTANT RULES:\n" +
-			"1. Return ONLY a single number (column index starting from 1). No text, no explanations, no additional characters.\n" +
-			"2. Find EXACT match first. If exact match exists, return its index.\n" +
-			"3. If no exact match, then look for partial matches.\n" +
-			"4. Case-insensitive comparison allowed.\n" +
-			"5. Data is CSV format (comma-separated). Look ONLY at the first row (header row).\n" +
-			"6. Count positions carefully: each comma marks a column boundary.\n" +
-			"7. Example: if searching for 'test2' and headers are 'test1,test2,test', return 2 (not 1 or 3).\n" +
-			"8. If the header is in the 3rd column, return only: 3\n\n" +
-			"CSV data:\n" + csv;
-			
-			let requestEngine = AI.Request.create(AI.ActionType.Chat);
-			if (!requestEngine)
-				return null;
-
-			let isSendedEndLongAction = false;
-			async function checkEndAction() {
-				if (!isSendedEndLongAction) {
-					await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-					isSendedEndLongAction = true
-				}
-			}
-
-			await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-			await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-			let result = await requestEngine.chatRequest(argPromt, false, async function(data) {
-				if (!data)
-					return;
-				await checkEndAction();
-			});
-
-			await checkEndAction();
-			await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-			return result - 0;
-		}
-
-		if (Asc.scope.key1 && typeof Asc.scope.key1 === 'string' && isNaN(Asc.scope.key1) && !Asc.scope.key1.match(/^[A-Z]+\d+$/i)) {
-			Asc.scope.key1 = await findColumnByName(Asc.scope.key1);
-		}
-
-		await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let range;
-
-			if (!Asc.scope.range) {
-				range = Api.GetSelection();
-			} else {
-				range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!range) {
-				return;
-			}
-
-			if (Asc.scope.header === "xlYes") {
-				range.SetOffset(1, 0);
-			}
-
-			let key1 = null;
-
-			function adjustSortKey(keyValue) {
-				if (!keyValue) {
-					return ws.GetCells(range.GetRow(), range.GetCol());
-				}
-
-				if (typeof keyValue === 'number') {
-					return ws.GetCells(range.GetRow(), range.GetCol() + keyValue - 1);
-				} else if (typeof keyValue === 'string') {
-					try {
-						let keyRange = ws.GetRange(keyValue);
-						return keyRange || keyValue;
-					} catch {
-						return keyValue;
-					}
-				} else {
-					return keyValue;
-				}
-			}
-
-			key1 = adjustSortKey(Asc.scope.key1);
-
-			range.SetSort(
-				key1,
-				Asc.scope.sortOrder1,
-				null,
-				null,
-				null,
-				null,
-				Asc.scope.header
-			);
-		});
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "summarizeData",
-		"description": "Analyzes and creates a comprehensive text summary of data in the specified range. Automatically determines data types (numeric, categorical, dates) and provides relevant statistics for each type. For numeric data: calculates totals, averages, ranges, and identifies outliers. For categorical data: finds most frequent values and distribution patterns. The summary is placed in a new cell adjacent to the data range with proper formatting and text wrapping.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"range": {
-					"type": "string",
-					"description": "Cell range to summarize data (e.g., 'A1:D10'). If omitted, uses active/selected range."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Analyze and summarize data in the current selection with key trends, totals, and insights",
-				"arguments": {}
-			},
-			{
-				"prompt": "Summarize data in range A1:D10",
-				"arguments": { "range": "A1:D10" }
-			},
-			{
-				"prompt": "Create text summary of active range with statistics, patterns, and anomalies",
-				"arguments": {}
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.range = params.range;
-		
-		let rangeData = await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let range;
-			if (Asc.scope.range) {
-				range = ws.GetRange(Asc.scope.range);
-			} else {
-				range = ws.Selection; 
-			}
-			return [range.Address, range.GetValue2()];
-		});
-
-		let address = rangeData[0];
-		let data = rangeData[1];
-		let colCount = data.length > 0 ? data[0].length : 0;
-		let rowCount = data.length;
-		
-		let csv = data.map(function(item){
-			return item.map(function(value) {
-				if (value == null) return '';
-				const str = String(value);
-				if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-					return '"' + str.replace(/"/g, '""') + '"';
-				}
-				return str;
-			}).join(',');
-		}).join('\n');
-
-		const argPrompt = [
-			"You are a data analyst. Analyze the provided CSV data and create a comprehensive summary.",
-			"",
-			"Instructions:",
-			"1. Determine data types in each column (numeric, categorical/text, dates, mixed)",
-			"2. For NUMERIC data: calculate totals, averages, ranges, identify peaks/outliers",
-			"3. For CATEGORICAL data: find most frequent values, distribution patterns",
-			"4. For MIXED tables: combine insights (e.g., 'Category A average: 120, Category B: 95, outlier in row 15')",
-			"5. Identify trends, patterns, anomalies, and key insights",
-			"",
-			"Output format: Plain text summary in bullet points",
-			"- Start each bullet with '• '",
-			"- Keep concise but informative",
-			"- Include specific numbers and findings",
-			"- Highlight important patterns or anomalies",
-			"- Maximum 10-15 bullet points",
-			"",
-			"CSV data (" + rowCount + " rows, " + colCount + " columns):",
-			csv
-		].join('\n');
-
-		let requestEngine = AI.Request.create(AI.ActionType.Chat);
-		if (!requestEngine)
-			return;
-
-		let isSendedEndLongAction = false;
-		async function checkEndAction() {
-			if (!isSendedEndLongAction) {
-				await Asc.Editor.callMethod("EndAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-				isSendedEndLongAction = true;
-			}
-		}
-
-		await Asc.Editor.callMethod("StartAction", ["Block", "AI (" + requestEngine.modelUI.name + ")"]);
-		await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-		let aiResult = await requestEngine.chatRequest(argPrompt, false, async function(data) {
-			if (!data)
-				return;
-		});
-		await checkEndAction();
-		await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-
-		Asc.scope.address = address;
-		Asc.scope.summary = aiResult;
-		Asc.scope.colCount = colCount;
-
-		if (Asc.scope.summary) {
-			await Asc.Editor.callCommand(function() {
-				let ws = Api.GetActiveSheet();
-				let range = ws.GetRange(Asc.scope.address);
-				let summary = Asc.scope.summary;
-				let colCount = Asc.scope.colCount;
-				
-				let summaryCol = range.GetCol() + colCount;
-				let summaryRow = range.GetRow();
-				
-				let summaryCell = ws.GetCells(summaryRow, summaryCol);
-				summaryCell.Value = "Data Summary:\n" + summary;
-				
-				summaryCell.WrapText = true;
-				summaryCell.AlignVertical = "top";
-				
-				let summaryRange = ws.GetRange(summaryCell.Address);
-				summaryRange.AutoFit(false, true);
-				
-				let highlightColor = Api.CreateColorFromRGB(245, 245, 245);
-				summaryCell.FillColor = highlightColor;
-			});
-		}
-	};
-
-	return func;
-})());
-HELPERS.cell.push((function(){
-
-	let func = new RegisteredFunction({
-		"name": "changeTextStyle",
-		"description": "Applies text formatting styles to cells in the specified range or current selection. Supports comprehensive text styling options including bold, italic, underline (multiple types), strikeout, font family, font size, and font color. Colors can be specified using hex codes (#FF0000) or preset color names (red, blue, etc.). All formatting parameters are optional - only specified properties will be changed, leaving others unchanged.",
-		"parameters": {
-			"type": "object",
-			"properties": {
-				"bold": {
-					"type": "boolean",
-					"description": "Whether to make the text bold (true to enable, false to disable)."
-				},
-				"italic": {
-					"type": "boolean",
-					"description": "Whether to make the text italic (true to enable, false to disable)."
-				},
-				"underline": {
-					"type": "string",
-					"description": "Underline type to apply.",
-					"enum": ["none", "single", "singleAccounting", "double", "doubleAccounting"]
-				},
-				"strikeout": {
-					"type": "boolean",
-					"description": "Whether to strike through the text (true to enable, false to disable)."
-				},
-				"fontSize": {
-					"type": "number",
-					"description": "Font size to apply to the selected cell(s).",
-					"minimum": 1,
-					"maximum": 200
-				},
-				"fontName": {
-					"type": "string",
-					"description": "Font family name to apply to the selected cell(s)."
-				},
-				"fontColor": {
-					"type": "string",
-					"description": "Font color (hex color like '#FF0000' or preset color name like 'red')."
-				},
-				"range": {
-					"type": "string",
-					"description": "Cell range to format (e.g., 'A1:B5'). If omitted, uses current selection."
-				}
-			},
-			"required": []
-		},
-		"examples": [
-			{
-				"prompt": "Make selected cells bold and italic",
-				"arguments": { "bold": true, "italic": true }
-			},
-			{
-				"prompt": "Underline selected cells",
-				"arguments": { "underline": "single" }
-			},
-			{
-				"prompt": "Strike out selected cells",
-				"arguments": { "strikeout": true }
-			},
-			{
-				"prompt": "Set font size to 18",
-				"arguments": { "fontSize": 18 }
-			},
-			{
-				"prompt": "Change font to Arial and make it red",
-				"arguments": { "fontName": "Arial", "fontColor": "red" }
-			},
-			{
-				"prompt": "Format range A1:C3 as bold",
-				"arguments": { "range": "A1:C3", "bold": true }
-			},
-			{
-				"prompt": "Remove italics from selected cells",
-				"arguments": { "italic": false }
-			}
-		]
-	});
-
-	func.call = async function(params) {
-		Asc.scope.bold = params.bold;
-		Asc.scope.italic = params.italic;
-		Asc.scope.underline = params.underline;
-		Asc.scope.strikeout = params.strikeout;
-		Asc.scope.fontSize = params.fontSize;
-		Asc.scope.fontName = params.fontName;
-		Asc.scope.fontColor = params.fontColor;
-		Asc.scope.range = params.range;
-
-		await Asc.Editor.callCommand(function(){
-			let ws = Api.GetActiveSheet();
-			let _range;
-
-			if (!Asc.scope.range) {
-				_range = Api.GetSelection();
-			} else {
-				_range = ws.GetRange(Asc.scope.range);
-			}
-
-			if (!_range)
-				return;
-
-			if (undefined !== Asc.scope.bold)
-				_range.SetBold(Asc.scope.bold);
-
-			if (undefined !== Asc.scope.italic)
-				_range.SetItalic(Asc.scope.italic);
-
-			if (undefined !== Asc.scope.underline)
-				_range.SetUnderline(Asc.scope.underline);
-
-			if (undefined !== Asc.scope.strikeout)
-				_range.SetStrikeout(Asc.scope.strikeout);
-
-			if (undefined !== Asc.scope.fontSize)
-				_range.SetFontSize(Asc.scope.fontSize);
-
-			if (undefined !== Asc.scope.fontName)
-				_range.SetFontName(Asc.scope.fontName);
-
-			if (undefined !== Asc.scope.fontColor) {
-				// Handle different color formats
-				let color;
-				if (Asc.scope.fontColor.startsWith('#')) {
-					// Hex color
-					color = Api.CreateColorFromRGB(
-						parseInt(Asc.scope.fontColor.substring(1, 3), 16),
-						parseInt(Asc.scope.fontColor.substring(3, 5), 16),
-						parseInt(Asc.scope.fontColor.substring(5, 7), 16)
-					);
-				} else {
-					// Preset color name
-					color = Api.CreateColorByName(Asc.scope.fontColor);
-				}
-				if (color)
-					_range.SetFontColor(color);
-			}
-		});
 	};
 
 	return func;
