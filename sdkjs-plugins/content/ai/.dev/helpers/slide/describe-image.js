@@ -119,62 +119,40 @@
       }
 
       let argPrompt = params.prompt + " (for the selected image)";
-      let requestEngine = AI.Request.create(AI.ActionType.Chat);
+      let requestEngine = AI.Request.create(AI.ActionType.Vision);
       if (!requestEngine) {
         await insertMessage("AI request engine not available.");
         return;
       }
-      const allowVision = /(vision|gemini|gpt-4o|gpt-4v|gpt-4-vision)/i;
-      if (!allowVision.test(requestEngine.modelUI.name)) {
-        await insertMessage(
-          "⚠ This model may not support images. Please choose a vision-capable model (e.g. GPT-4V, Gemini, etc.)."
-        );
-        return;
-      }
-      await Asc.Editor.callMethod("StartAction", [
-        "Block",
-        "AI (" + requestEngine.modelUI.name + ")",
-      ]);
+
+      console.log("describeImage: Starting AI action with model", requestEngine.modelUI.name);
       await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
 
-      let messages = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: argPrompt },
-            {
-              type: "image_url",
-              image_url: { url: imageData.src, detail: "high" },
-            },
-          ],
-        },
-      ];
-
       let resultText = "";
-      await requestEngine.chatRequest(messages, false, async function (data) {
-        if (data) {
-          resultText += data;
+      console.log("describeImage: Sending image vision request");
+
+      try {
+        let result = await requestEngine.imageVisionRequest({
+            prompt: argPrompt,
+            image: imageData.src
+        });
+        
+        if (result) {
+            resultText = result;
         }
-        Asc.scope.text = resultText;
-        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-        await Asc.Editor.callMethod("EndAction", [
-          "Block",
-          "AI (" + requestEngine.modelUI.name + ")",
-        ]);
-      });
+      } catch (e) {
+          console.error("describeImage: imageVisionRequest failed", e);
+      }
 
       Asc.scope.text = resultText || "";
 
       if (Asc.scope.text && Asc.scope.text.trim().length > 0) {
         await insertMessage(Asc.scope.text);
       }
+      await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
     } catch (e) {
       try {
         await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-        await Asc.Editor.callMethod("EndAction", [
-          "Block",
-          "AI (describeImage)",
-        ]);
       } catch (ee) {}
       console.error("[describeImage] error:", e);
       await insertMessage("An error occurred while describing the image.");

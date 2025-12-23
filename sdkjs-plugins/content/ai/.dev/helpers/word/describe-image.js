@@ -78,11 +78,9 @@
 
    // The actual logic executed inside the editor
   func.call = async function (params) {
-    console.log("describeImage: func.call started", params);
     let prompt = params.prompt;
 
     async function insertMessage(message) {
-      console.log("describeImage: insertMessage called", message);
       Asc.scope._message = String(message || "");
       // 3. Insert the result into the document
       await Asc.Editor.callCommand(function () {
@@ -109,7 +107,6 @@
 
     try {
     // 1. Get the selected image
-      console.log("describeImage: getting image data...");
       let imageData = await new Promise((resolve) => {
         window.Asc.plugin.executeMethod(
           "GetImageDataFromSelection",
@@ -122,7 +119,6 @@
       });
 
       if (!imageData || !imageData.src) {
-        console.log("describeImage: No valid image data found");
         await insertMessage("Please select a valid image first.");
         return;
       }
@@ -130,94 +126,58 @@
       const whiteRectangleBase64 =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==";
       if (imageData.src === whiteRectangleBase64) {
-        console.log("describeImage: Image is white placeholder");
         await insertMessage("Please select a valid image first.");
         return;
       }
 
       let argPrompt = prompt + " (for the selected image)";
-      // 2. Send image + prompt to the AI engine
-      console.log("describeImage: Creating AI request engine");
-      let requestEngine = AI.Request.create(AI.ActionType.Chat);
+      // 2. Create AI request engine
+      let requestEngine = AI.Request.create(AI.ActionType.Vision);
       if (!requestEngine) {
         console.error("describeImage: AI request engine not available");
         await insertMessage("AI request engine not available.");
         return;
       }
-      const allowVision = /(vision|gemini|gpt-4o|gpt-4v|gpt-4-vision)/i;
-      if (!allowVision.test(requestEngine.modelUI.name)) {
-        console.warn("describeImage: Model does not support vision", requestEngine.modelUI.name);
-        await insertMessage(
-          "⚠ This model may not support images. Please choose a vision-capable model (e.g. GPT-4V, Gemini, etc.)."
-        );
-        return;
+      await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
+      
+      let resultText = "";
+      try {
+        let result = await requestEngine.imageVisionRequest({
+            prompt: argPrompt,
+            image: imageData.src
+        });
+        
+        if (result) {
+            resultText = result;
+        }
+      } catch (e) {
+          console.error("describeImage: imageVisionRequest failed", e);
       }
 
-      console.log("describeImage: Starting AI action with model", requestEngine.modelUI.name);
-      await Asc.Editor.callMethod("StartAction", [
-        "Block",
-        "AI (" + requestEngine.modelUI.name + ")",
-      ]);
-      await Asc.Editor.callMethod("StartAction", ["GroupActions"]);
-
-      let messages = [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: argPrompt },
-            {
-              type: "image_url",
-              image_url: { url: imageData.src, detail: "high" },
-            },
-          ],
-        },
-      ];
-      let resultText = "";
-      console.log("describeImage: Sending chat request", messages);
-      await requestEngine.chatRequest(messages, false, async function (data) {
-        console.log("describeImage: chatRequest callback data chunk", data);
-        if (data) {
-          resultText += data;
-        }
-      });
-
-      console.log("describeImage: chatRequest finished. Total result length:", resultText.length);
-      await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-
-      await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-      await Asc.Editor.callMethod("EndAction", [
-        "Block",
-        "AI (" + requestEngine.modelUI.name + ")",
-      ]);
       Asc.scope.text = resultText || "";
 
       if (!Asc.scope.text.trim()) {
         console.warn("describeImage: AI returned empty text");
         await insertMessage(
-          "⚠ AI request failed (maybe the model cannot handle images)."
+          "⚠ AI request failed or returned empty response. The model may not support images."
         );
+        await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
         return;
       }
-      console.log("describeImage: Inserting result text");
       await insertMessage(Asc.scope.text);
+      await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
     } catch (e) {
       try {
         await Asc.Editor.callMethod("EndAction", ["GroupActions"]);
-        await Asc.Editor.callMethod("EndAction", [
-          "Block",
-          "AI (describeImage)",
-        ]);
       } catch (ee) {
         /* ignore */
       }
       console.error("describeImage error:", e);
       await insertMessage(
-        "An unexpected error occurred while describing the image."
+        "An unexpected error occurred while describing the image: " + (e.message || e)
       );
     }
   };
 
   return func;
 })();
-
-
