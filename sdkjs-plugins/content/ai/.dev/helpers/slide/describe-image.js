@@ -79,7 +79,7 @@
           fill,
           stroke
         );
-        shape.SetPosition(720000, 3600000);
+        shape.SetPosition(720000, 5600000);
 
         let docContent = shape.GetDocContent();
         let p = docContent.GetElement(0);
