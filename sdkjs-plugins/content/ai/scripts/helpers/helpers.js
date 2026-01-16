@@ -3230,11 +3230,11 @@ HELPERS.slide.push((function () {
         let fill = Api.CreateNoFill();
         let stroke = Api.CreateStroke(0, Api.CreateNoFill());
         let shape = Api.CreateShape(
-          "rect",
-          300 * 36000,
-          40 * 36000,
-          fill,
-          stroke
+            "rect",
+            slideWidth * 0.8,
+            slideHeight * 0.2,
+            fill,
+            stroke
         );
         shape.SetPosition(slideWidth * 0.1, slideHeight * 0.75);
 
