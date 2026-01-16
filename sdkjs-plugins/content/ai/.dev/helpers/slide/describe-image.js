@@ -69,6 +69,8 @@
       await Asc.Editor.callCommand(function () {
         let presentation = Api.GetPresentation();
         let slide = presentation.GetCurrentSlide();
+        const slideHeight = slide.GetHeight();
+        const slideWidth = slide.GetWidth();
 
         let fill = Api.CreateNoFill();
         let stroke = Api.CreateStroke(0, Api.CreateNoFill());
@@ -79,7 +81,7 @@
           fill,
           stroke
         );
-        shape.SetPosition(720000, 5600000);
+        shape.SetPosition(slideWidth * 0.1, slideHeight * 0.75);
 
         let docContent = shape.GetDocContent();
         let p = docContent.GetElement(0);
